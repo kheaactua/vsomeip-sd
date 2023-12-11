@@ -41,15 +41,15 @@
 #define VSOMEIP_ROUTING_HOST_PORT_DEFAULT       31490
 
 #ifndef VSOMEIP_CFG_LIBRARY
-#define VSOMEIP_CFG_LIBRARY                     "libvsomeip-cfg.so"
+#define VSOMEIP_CFG_LIBRARY                     "libvsomeip_cfg.so"
 #endif
 
 #ifndef VSOMEIP_SD_LIBRARY
-#define VSOMEIP_SD_LIBRARY                      "libvsomeip-sd.so"
+#define VSOMEIP_SD_LIBRARY                      "libvsomeip_sd.so"
 #endif
 
 #ifndef VSOMEIP_E2E_LIBRARY
-#define VSOMEIP_E2E_LIBRARY                     "libvsomeip-e2e.so"
+#define VSOMEIP_E2E_LIBRARY                     "libvsomeip_e2e.so"
 #endif
 
 #ifndef VSOMEIP_SEC_LIBRARY
@@ -71,7 +71,10 @@
 #ifndef VSOMEIP_NETMASK
 #define VSOMEIP_NETMASK                         "255.255.0.0"
 #endif
+
+#ifndef VSOMEIP_PREFIX
 #define VSOMEIP_PREFIX                          24
+#endif
 
 #define VSOMEIP_DEFAULT_CONNECT_TIMEOUT         100
 #define VSOMEIP_MAX_CONNECT_TIMEOUT             1600
@@ -111,11 +114,6 @@
 #define VSOMEIP_DEFAULT_MAX_REMOTE_SUBSCRIBERS  3
 
 #define VSOMEIP_MAX_WAIT_SENT                   5
-
-#define VSOMEIP_COMMAND_HEADER_SIZE             7
-
-#define VSOMEIP_COMMAND_TYPE_POS                0
-#define VSOMEIP_COMMAND_CLIENT_POS              1
 
 #define VSOMEIP_LOCAL_CLIENT_ENDPOINT_RECV_BUFFER_SIZE  19
 

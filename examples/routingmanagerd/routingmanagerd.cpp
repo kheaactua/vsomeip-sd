@@ -31,6 +31,10 @@ static std::condition_variable_any sighandler_condition;
 static std::recursive_mutex sighandler_mutex;
 #endif
 
+#ifndef ROUTING_APPLICATION_NAME
+#define ROUTING_APPLICATION_NAME "routingmanagerd"
+#endif
+
 #ifndef VSOMEIP_ENABLE_SIGNAL_HANDLING
 /*
  * Handle signal to stop the daemon
@@ -81,7 +85,7 @@ int routingmanagerd_process(bool _is_quiet) {
     }
 
     // Create the application object
-    its_application = its_runtime->create_application("routingmanagerd");
+    its_application = its_runtime->create_application(ROUTING_APPLICATION_NAME);
 #ifndef VSOMEIP_ENABLE_SIGNAL_HANDLING
     std::thread sighandler_thread([]() {
         // Unblock signals for this thread only

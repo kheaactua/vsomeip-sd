@@ -165,13 +165,26 @@ void routing_manager_impl::init() {
     }
 
     if (configuration_->is_sd_enabled()) {
-        VSOMEIP_INFO<< "Service Discovery enabled. Trying to load module.";
+        VSOMEIP_INFO << "Service Discovery enabled. Trying to load module.";
         auto its_plugin = plugin_manager::get()->get_plugin(
                 plugin_type_e::SD_RUNTIME_PLUGIN, VSOMEIP_SD_LIBRARY);
         if (its_plugin) {
             VSOMEIP_INFO << "Service Discovery module loaded.";
-            discovery_ = std::dynamic_pointer_cast<sd::runtime>(its_plugin)->create_service_discovery(this, configuration_);
-            discovery_->init();
+            auto sd_module = std::dynamic_pointer_cast<sd::runtime>(its_plugin);
+            if(sd_module) {
+                discovery_ = sd_module->create_service_discovery(this, configuration_);
+                if(discovery_) {
+                    VSOMEIP_INFO << "Service Discovery created";
+                    discovery_->init();
+                    VSOMEIP_INFO << "Service Discovery initialized";
+                } else {
+                    VSOMEIP_ERROR << "Fail to create Service Discovery";
+                    std::exit(EXIT_FAILURE);
+                }
+            } else {
+                VSOMEIP_ERROR << "Fail to create Service Discovery";
+                std::exit(EXIT_FAILURE);
+            }
         } else {
             VSOMEIP_ERROR << "Service Discovery module could not be loaded!";
             std::exit(EXIT_FAILURE);

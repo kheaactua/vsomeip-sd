@@ -99,6 +99,7 @@ cc_defaults {
         "-DVSOMEIP_BOOST_VERSION=" + boost_version,
         "-DVSOMEIP_VERSION=\"" + vsomeip_version + "\"",
         "-DVSOMEIP_INTERNAL_SUPPRESS_DEPRECATED",
+        "-DVSOMEIP_NETMASK=\"255.255.0.0\"",
     ],
     target: {
         vendor: {
