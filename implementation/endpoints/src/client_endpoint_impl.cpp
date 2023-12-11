@@ -573,6 +573,10 @@ void client_endpoint_impl<Protocol>::send_cbk(
     } else if (_error == boost::asio::error::not_connected
             || _error == boost::asio::error::bad_descriptor
             || _error == boost::asio::error::no_permission) {
+            VSOMEIP_TRACE << "client_endpoint: "
+                    "not_connected(" << std::boolalpha << (_error == boost::asio::error::not_connected) << ")"
+                    "/bad_descriptor(" << std::boolalpha << (_error == boost::asio::error::bad_descriptor) << ")"
+                    "/no_permission(" << std::boolalpha << (_error == boost::asio::error::no_permission) << ")";
         state_ = cei_state_e::CLOSED;
         if (_error == boost::asio::error::no_permission) {
             VSOMEIP_WARNING << "cei::send_cbk received error: " << _error.message()

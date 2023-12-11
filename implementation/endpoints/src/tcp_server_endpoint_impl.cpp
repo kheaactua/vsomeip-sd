@@ -289,6 +289,10 @@ void tcp_server_endpoint_impl::accept_cbk(const connection::ptr& _connection,
     if (_error != boost::asio::error::bad_descriptor
             && _error != boost::asio::error::operation_aborted
             && _error != boost::asio::error::no_descriptors) {
+        VSOMEIP_TRACE << "tcp_server_endpoint: "
+                "bad_descriptor(" << std::boolalpha << (_error == boost::asio::error::bad_descriptor) << ")"
+                "/operation_aborted(" << std::boolalpha << (_error == boost::asio::error::operation_aborted) << ")"
+                "/no_descriptors(" << std::boolalpha << (_error == boost::asio::error::no_descriptors) << ")";
         start();
     } else if (_error == boost::asio::error::no_descriptors) {
         VSOMEIP_ERROR<< "tcp_server_endpoint_impl::accept_cbk: "
@@ -794,6 +798,10 @@ void tcp_server_endpoint_impl::connection::receive_cbk(
     if (_error == boost::asio::error::eof
             || _error == boost::asio::error::connection_reset
             || _error == boost::asio::error::timed_out) {
+            VSOMEIP_TRACE << "tcp_server_endpoint: "
+                    "connection_reset(" << std::boolalpha << (_error == boost::asio::error::connection_reset) << ")"
+                    "/EOF(" << std::boolalpha << (_error == boost::asio::error::eof) << ")"
+                    "/timed_out(" << std::boolalpha << (_error == boost::asio::error::timed_out) << ")";
         if(_error == boost::asio::error::timed_out) {
             std::lock_guard<std::mutex> its_lock(socket_mutex_);
             VSOMEIP_WARNING << "tcp_server_endpoint receive_cbk: " << _error.message()

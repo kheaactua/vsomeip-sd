@@ -287,6 +287,11 @@ void local_uds_client_endpoint_impl::receive_cbk(
             return;
         } else if (_error == boost::asio::error::connection_reset
                 || _error == boost::asio::error::bad_descriptor) {
+            VSOMEIP_TRACE << "local_uds_client_endpoint_impl::" << __func__ << "::" << __LINE__ <<
+                    "connection_reset(" << std::boolalpha << (_error == boost::asio::error::connection_reset) << ")"
+                    "/EOF(" << std::boolalpha << (_error == boost::asio::error::eof) << ")"
+                    "/bad_descriptor(" << std::boolalpha << (_error == boost::asio::error::bad_descriptor) << ")";
+
             restart(true);
             return;
         }

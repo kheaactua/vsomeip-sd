@@ -224,6 +224,15 @@ void local_tcp_server_endpoint_impl::remove_connection(
 
 void local_tcp_server_endpoint_impl::accept_cbk(
         const connection::ptr& _connection, boost::system::error_code const &_error) {
+    if (_error == boost::asio::error::connection_reset
+                || _error == boost::asio::error::eof
+                || _error == boost::asio::error::bad_descriptor) {
+            VSOMEIP_TRACE << "local_server_endpoint: "
+                    "connection_reset(" << std::boolalpha << (_error == boost::asio::error::connection_reset) << ")"
+                    "/EOF(" << std::boolalpha << (_error == boost::asio::error::eof) << ")"
+                    "/bad_descriptor(" << std::boolalpha << (_error == boost::asio::error::bad_descriptor) << ")";
+    }
+
     if (_error != boost::asio::error::bad_descriptor
             && _error != boost::asio::error::operation_aborted
             && _error != boost::asio::error::no_descriptors) {
@@ -705,6 +714,12 @@ void local_tcp_server_endpoint_impl::connection::receive_cbk(
             || _error == boost::asio::error::connection_reset
             || is_error) {
         shutdown_and_close();
+
+        VSOMEIP_TRACE << "local_server_endpoint: "
+                "connection_reset(" << std::boolalpha << (_error == boost::asio::error::connection_reset) << ")"
+                "/EOF(" << std::boolalpha << (_error == boost::asio::error::eof) << ")"
+                "/is_error(" << std::boolalpha << (is_error) << ")";
+
         its_server->remove_connection(bound_client_);
         policy_manager_impl::get()->remove_client_to_sec_client_mapping(bound_client_);
     } else if (_error != boost::asio::error::bad_descriptor) {

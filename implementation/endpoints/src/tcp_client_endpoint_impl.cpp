@@ -786,6 +786,11 @@ void tcp_client_endpoint_impl::receive_cbk(
                     _error == boost::asio::error::timed_out ||
                     _error == boost::asio::error::bad_descriptor ||
                     _error == boost::asio::error::connection_reset) {
+                VSOMEIP_TRACE << "tcp_client_endpoint: "
+                        "connection_reset(" << std::boolalpha << (_error == boost::asio::error::connection_reset) << ")"
+                        "/EOF(" << std::boolalpha << (_error == boost::asio::error::eof) << ")"
+                        "/bad_descriptor(" << std::boolalpha << (_error == boost::asio::error::bad_descriptor) << ")";
+
                 if (state_ == cei_state_e::CONNECTING) {
                     VSOMEIP_WARNING << "tcp_client_endpoint receive_cbk already"
                             " restarting" << get_remote_information();
