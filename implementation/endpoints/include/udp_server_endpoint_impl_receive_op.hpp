@@ -62,7 +62,7 @@ struct storage :
         multicast_id_(_multicast_id),
         is_v4_(_is_v4),
         destination_(_destination),
-        bytes_(_bytes) 
+        bytes_(_bytes)
     {}
 };
 
@@ -241,8 +241,15 @@ receive_cb (std::shared_ptr<storage> _data) {
                 union {
                     struct cmsghdr cmh;
                     union {
+#ifdef __QNX__
+                        // Magic numbers were derived from evaluating the size
+                        // (see below) at runtime on QNX
+                        char v4[26];
+                        char v6[40];
+#else
                         char   v4[CMSG_SPACE(sizeof(struct in_pktinfo))];
                         char   v6[CMSG_SPACE(sizeof(struct in6_pktinfo))];
+#endif
                     } control;
                 } control_un;
 
@@ -296,7 +303,7 @@ receive_cb (std::shared_ptr<storage> _data) {
                     _data->sender_ = endpoint_type_t(its_sender_address, its_sender_port);
 
                     // destination
-                    struct in_pktinfo *its_pktinfo_v4;
+                    struct in_pktinfo *its_pktinfo_v4 = nullptr;
                     for (struct cmsghdr *cmsg = CMSG_FIRSTHDR(&its_header);
                          cmsg != NULL;
                          cmsg = CMSG_NXTHDR(&its_header, cmsg)) {

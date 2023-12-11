@@ -61,8 +61,10 @@
 
 #define VSOMEIP_CLIENT_UNSET                    0xFFFF
 
-#ifdef _WIN32
+#if defined(_WIN32)
 #define VSOMEIP_INTERNAL_BASE_PORT              51234
+#endif
+#if defined(_WIN32) || defined(__QNX__)
 #define __func__ __FUNCTION__
 #endif
 
@@ -150,8 +152,8 @@ inline constexpr std::uint32_t QUEUE_SIZE_UNLIMITED = (std::numeric_limits<std::
 
 inline constexpr std::uint32_t MAX_RECONNECTS_UNLIMITED = std::numeric_limits<std::uint32_t>::max();
 
-const std::uint32_t ANY_UID = 0xFFFFFFFF;
-const std::uint32_t ANY_GID = 0xFFFFFFFF;
+inline constexpr auto ANY_UID = std::numeric_limits<::uid_t>::max();
+inline constexpr auto ANY_GID = std::numeric_limits<::gid_t>::max();
 
 enum class port_type_e {
     PT_OPTIONAL,

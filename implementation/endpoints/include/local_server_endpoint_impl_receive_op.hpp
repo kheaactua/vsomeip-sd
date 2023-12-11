@@ -12,6 +12,8 @@
 #include <boost/asio/local/stream_protocol.hpp>
 #include <memory>
 
+#include "../include/sockcred.hpp"
+
 namespace vsomeip_v3 {
 namespace local_endpoint_receive_op {
 
@@ -26,9 +28,9 @@ struct storage :
     socket_type_t &socket_;
     receive_handler_t handler_;
     byte_t *buffer_ = nullptr;
-    size_t length_;
-    uid_t uid_;
-    gid_t gid_;
+    std::size_t length_;
+    uid_t uid_ = ANY_UID;
+    gid_t gid_ = ANY_GID;
     size_t bytes_;
 
     storage(
@@ -68,13 +70,13 @@ receive_cb(std::shared_ptr<storage> _data) {
 
                 union {
                     struct cmsghdr cmh;
-                    char   control[CMSG_SPACE(sizeof(struct ucred))];
+                    char   control[CMSG_SIZE];
                 } control_un;
 
                 // Set 'control_un' to describe ancillary data that we want to receive
-                control_un.cmh.cmsg_len = CMSG_LEN(sizeof(struct ucred));
+                control_un.cmh.cmsg_len = CMSG_LEN(sizeof(UCRED_T));
                 control_un.cmh.cmsg_level = SOL_SOCKET;
-                control_un.cmh.cmsg_type = SCM_CREDENTIALS;
+                control_un.cmh.cmsg_type = SCM_CRED_TYPE;
 
                 // Build header with all informations to call ::recvmsg
                 msghdr its_header = msghdr();
@@ -106,23 +108,29 @@ receive_cb(std::shared_ptr<storage> _data) {
                     _error = boost::asio::error::eof;
 
                 // Extract credentials (UID/GID)
-                struct ucred *its_credentials;
+#ifndef __QNX__
+                UCRED_T *its_credentials = nullptr;
                 for (struct cmsghdr *cmsg = CMSG_FIRSTHDR(&its_header);
                      cmsg != NULL;
                      cmsg = CMSG_NXTHDR(&its_header, cmsg))
                 {
                     if (cmsg->cmsg_level == SOL_SOCKET
-                        && cmsg->cmsg_type == SCM_CREDENTIALS
-                        && cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
+                        && cmsg->cmsg_type == SCM_CRED_TYPE
+                        && cmsg->cmsg_len == CMSG_LEN(sizeof(UCRED_T))) {
 
-                        its_credentials = (struct ucred *) CMSG_DATA(cmsg);
+                        its_credentials = reinterpret_cast<UCRED_T *>(CMSG_DATA(cmsg));
                         if (its_credentials) {
-                            _data->uid_ = its_credentials->uid;
-                            _data->gid_ = its_credentials->gid;
+                            _data->uid_ = UCRED_UID(its_credentials);
+                            _data->gid_ = UCRED_GID(its_credentials);
                             break;
                         }
                     }
                 }
+#else
+                // Please review comments in credentials::receive_credentials
+                _data->uid_ = ANY_UID;
+                _data->gid_ = ANY_GID;
+#endif
 
                 break;
             }
@@ -136,7 +144,7 @@ receive_cb(std::shared_ptr<storage> _data) {
 } // namespace local_endpoint_receive_op
 } // namespace vsomeip
 
-#endif // __linux__ || ANDROID
+#endif // __linux__ || ANDROID || __QNX__
 #endif // VSOMEIP_BOOST_VERSION >= 106600
 
 #endif // VSOMEIP_V3_LOCAL_SERVER_ENDPOINT_IMPL_RECEIVE_OP_HPP_

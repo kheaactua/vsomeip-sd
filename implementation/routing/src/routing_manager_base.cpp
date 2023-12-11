@@ -729,7 +729,7 @@ bool routing_manager_base::is_subscribe_to_any_event_allowed(
 }
 
 void routing_manager_base::add_known_client(client_t _client, const std::string &_client_host) {
-#if !defined(VSOMEIP_DISABLE_SECURITY) && (defined(__linux__) || defined(ANDROID))
+#if !defined(VSOMEIP_DISABLE_SECURITY) && (defined(__linux__) || defined(ANDROID) || defined(__QNX__))
     std::lock_guard<std::mutex> lazy_lock(add_known_client_mutex_);
     if (configuration_->is_security_enabled() && !configuration_->is_security_external()) {
         //Ignore if we have already loaded the policy extension

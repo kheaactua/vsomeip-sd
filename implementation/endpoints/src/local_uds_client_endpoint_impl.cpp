@@ -11,9 +11,7 @@
 #include <vsomeip/defines.hpp>
 #include <vsomeip/internal/logger.hpp>
 
-#ifndef __QNX__
 #include "../include/credentials.hpp"
-#endif
 #include "../include/endpoint_host.hpp"
 #include "../include/local_uds_client_endpoint_impl.hpp"
 #include "../include/local_uds_server_endpoint_impl.hpp"
@@ -124,8 +122,36 @@ void local_uds_client_endpoint_impl::connect() {
             state_ = cei_state_e::CONNECTING;
             socket_->connect(remote_, its_connect_error);
 
+            if (!its_connect_error) {
+
+                // During high contention on QNX (e.g. during startup) without this
+                // wait the sockets often hit broken pipe issues.  Often this wait
+                // is virtually instant, but sometimes takes a few ms or even
+                // timesout.
+                auto wait_cv_ = std::make_shared<std::condition_variable>();
+
+                auto const now = std::chrono::steady_clock::now();
+                boost::system::error_code ec;
+                socket_->wait(socket_type::wait_type::wait_write, ec);
+                if (ec) {
+                    VSOMEIP_ERROR << "lce::" << __func__ << ":"
+                                << " error occured while waiting for "
+                                << "write-ready on socket="
+                                << socket_->native_handle()
+                                << " remote=" << remote_.path() << ": "
+                                << ec.message();
+                    its_connect_error = ec;
+                }
+                VSOMEIP_DEBUG
+                    << "lce::connect:" << __LINE__
+                    << " waited on write-ready on socket="
+                    << socket_->native_handle()
+                    << ", connecting to " << remote_.path()
+                    << " for " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - now).count()
+                    << "ms";
+            }
+
             // Credentials
-            #ifndef __QNX__
             if (!its_connect_error) {
                 auto its_host = endpoint_host_.lock();
                 if (its_host) {
@@ -138,7 +164,6 @@ void local_uds_client_endpoint_impl::connect() {
                         << its_connect_error.message() << " / " << std::dec
                         << its_connect_error.value() << ")";
             }
-            #endif
         } else {
             VSOMEIP_WARNING << "local_client_endpoint::connect: Error opening socket: "
                     << its_error.message() << " (" << std::dec << its_error.value()

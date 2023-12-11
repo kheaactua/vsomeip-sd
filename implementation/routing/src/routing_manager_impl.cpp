@@ -319,15 +319,17 @@ void routing_manager_impl::stop() {
         std::lock_guard<std::mutex> its_lock(version_log_timer_mutex_);
         version_log_timer_.cancel();
     }
-#if defined(__linux__) || defined(ANDROID)
+#if defined(__linux__) || defined(ANDROID) || defined(__QNX__)
     {
         boost::system::error_code ec;
         std::lock_guard<std::mutex> its_lock(memory_log_timer_mutex_);
         memory_log_timer_.cancel(ec);
     }
+#if defined(__linux__) || defined(ANDROID)
     if (netlink_connector_) {
         netlink_connector_->stop();
     }
+#endif
 #endif
 
     {

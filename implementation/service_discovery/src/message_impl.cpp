@@ -420,11 +420,11 @@ length_t message_impl::get_someip_length() const {
 }
 
 uid_t message_impl::get_uid() const {
-    return ANY_UID;
+    return static_cast<uid_t>(ANY_UID);
 }
 
 gid_t message_impl::get_gid() const {
-    return ANY_GID;
+    return static_cast<uid_t>(ANY_UID);
 }
 
 vsomeip_sec_client_t message_impl::get_sec_client() const {

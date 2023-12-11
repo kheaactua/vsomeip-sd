@@ -877,16 +877,12 @@ void server_endpoint_impl<Protocol>::update_last_departure(
 }
 
 // Instantiate template
-#ifdef __linux__
+#if defined(__linux__) || defined(__QNX__)
 #if VSOMEIP_BOOST_VERSION < 106600
 template class server_endpoint_impl<boost::asio::local::stream_protocol_ext>;
 #else
 template class server_endpoint_impl<boost::asio::local::stream_protocol>;
 #endif
-#endif
-
-#ifdef __QNX__
-template class server_endpoint_impl<boost::asio::local::stream_protocol_ext>;
 #endif
 
 template class server_endpoint_impl<boost::asio::ip::tcp>;

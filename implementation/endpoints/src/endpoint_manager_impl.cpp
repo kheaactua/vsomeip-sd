@@ -721,7 +721,7 @@ endpoint_manager_impl::create_routing_root(
         }
 
         _is_socket_activated = false;
-#endif // __linux__ || ANDROID
+#endif // __linux__ || ANDROID || __QNX__
     } else {
         auto its_address = configuration_->get_routing_host_address();
         auto its_port = configuration_->get_routing_host_port();

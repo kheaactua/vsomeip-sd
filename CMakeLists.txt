@@ -170,6 +170,28 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
   target_link_libraries(OS_INTERFACE INTERFACE Threads::Threads)
 endif()
 
+if(${CMAKE_SYSTEM_NAME} MATCHES "QNX")
+  set(OS "QNX")
+  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+  add_compile_options(
+    -fexceptions
+    -fstrict-aliasing
+    -fstack-protector
+    -fasynchronous-unwind-tables
+    -fno-omit-frame-pointer
+  )
+  add_link_options(-Wl,-export-dynamic)
+  add_link_options(-Wl,--wrap=socket,--wrap=accept,--wrap=open)
+  target_link_libraries(OS_INTERFACE INTERFACE slog2 socket)
+
+  # Boost::stacktrace_addr2line is not available on QNX
+  # libbacktrace.so is not installed on target by default
+  target_link_libraries(STACKTRACE_INTERFACE INTERFACE
+    Boost::stacktrace_basic
+    # backtrace
+  )
+endif()
+
 if(${OS})
   add_definitions(-D${OS})
 endif()
@@ -234,6 +256,9 @@ if(NOT Boost_FOUND)
   message(FATAL_ERROR "Boost was not found!")
 endif()
 
+include(CMakeDependentOption)
+cmake_dependent_option(BOOST_ASIO_HAS_IONOTIFY "Use QNX's ionotifier reactor" TRUE "${CMAKE_SYSTEM_NAME} MATCHES QNX" FALSE)
+
 # cmake 3.15 introduced a new variable and a new format for the old one
 if(DEFINED Boost_VERSION_MACRO)
   set(VSOMEIP_BOOST_VERSION ${Boost_VERSION_MACRO})
@@ -294,6 +319,7 @@ if(MSVC)
   )
   link_directories(${Boost_LIBRARY_DIR_DEBUG})
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "QNX")
+  set(CMAKE_CXX_STANDARD 17)
   target_link_libraries(RT_INTERFACE INTERFACE $<$<PLATFORM_ID:QNX>:socket>)
 else()
   target_link_libraries(RT_INTERFACE INTERFACE rt)
@@ -372,6 +398,11 @@ if(${VSOMEIP_BOOST_VERSION} LESS 106600)
   )
 endif()
 target_compile_definitions(vsomeip3 PUBLIC _GNU_SOURCE $<$<CXX_COMPILER_ID:MSVC>:VSOMEIP_DLL_COMPILATION>)
+if(${BOOST_ASIO_HAS_IONOTIFY})
+  target_compile_definitions(vsomeip3 PUBLIC BOOST_ASIO_HAS_IONOTIFY)
+else()
+  target_compile_definitions(vsomeip3 PUBLIC BOOST_ASIO_DISABLE_IONOTIFY)
+endif()
 target_include_directories(vsomeip3 SYSTEM PUBLIC $<BUILD_INTERFACE:${Boost_INCLUDE_DIRS}>)
 target_link_libraries(vsomeip3 PRIVATE STACKTRACE_INTERFACE)
 set_target_properties(

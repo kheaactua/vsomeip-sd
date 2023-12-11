@@ -12,9 +12,7 @@
 
 #include <vsomeip/internal/logger.hpp>
 
-#ifndef __QNX__
 #include "../include/credentials.hpp"
-#endif
 #include "../include/endpoint_host.hpp"
 #include "../include/local_uds_server_endpoint_impl.hpp"
 #include "../include/local_server_endpoint_impl_receive_op.hpp"
@@ -64,13 +62,11 @@ local_uds_server_endpoint_impl::local_uds_server_endpoint_impl(
     if (ec)
         VSOMEIP_ERROR << __func__
             << ": listen failed (" << ec.message() << ")";
-#ifndef __QNX__
     if (chmod(_local.path().c_str(),
             static_cast<mode_t>(_configuration->get_permissions_uds())) == -1) {
         VSOMEIP_ERROR << __func__ << ": chmod: " << strerror(errno);
     }
     credentials::activate_credentials(acceptor_.native_handle());
-#endif
 }
 
 local_uds_server_endpoint_impl::local_uds_server_endpoint_impl(
@@ -258,7 +254,7 @@ void local_uds_server_endpoint_impl::accept_cbk(
             && _error != boost::asio::error::no_descriptors) {
         start();
     } else if (_error == boost::asio::error::no_descriptors) {
-        VSOMEIP_ERROR << "local_usd_server_endpoint_impl::accept_cbk: "
+        VSOMEIP_ERROR << "local_uds_server_endpoint_impl::accept_cbk: "
                 << _error.message() << " (" << std::dec << _error.value()
                 << ") Will try to accept again in 1000ms";
         std::shared_ptr<boost::asio::steady_timer> its_timer =
@@ -275,7 +271,6 @@ void local_uds_server_endpoint_impl::accept_cbk(
     }
 
     if (!_error) {
-#ifndef __QNX__
         auto its_host = endpoint_host_.lock();
         client_t its_client = 0;
         std::string its_client_host;
@@ -286,6 +281,35 @@ void local_uds_server_endpoint_impl::accept_cbk(
         its_sec_client.group = ANY_GID;
 
         socket_type &its_socket = _connection->get_socket();
+
+        {
+            // During high contention on QNX (e.g. during startup) without this
+            // wait the sockets often hit broken pipe issues.  Often this wait
+            // is virtually instant, but sometimes takes a few ms or even
+            // timesout.
+
+            boost::system::error_code ec;
+            auto const now = std::chrono::steady_clock::now();
+            its_socket.wait(socket_type::wait_type::wait_read, ec);
+            if (ec) {
+                VSOMEIP_ERROR
+                    << "lse::" << __func__ << ":"
+                    << " error occured while waiting for read-ready on socket="
+                    << its_socket.native_handle() << ": " << ec.message();
+                boost::system::error_code er;
+                its_socket.shutdown(its_socket.shutdown_both, er);
+                its_socket.close(er);
+            }
+            VSOMEIP_DEBUG
+                << "lse::accept_cbk:" << __LINE__
+                << " TID: " << std::hash<std::thread::id>{}(std::this_thread::get_id())
+                << " waited on read-ready on socket="
+                << its_socket.native_handle() << " for "
+                << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - now).count()
+                << "ms";
+
+        }
+
         if (auto creds = credentials::receive_credentials(its_socket.native_handle())) {
 
             its_client = std::get<0>(*creds);
@@ -370,7 +394,6 @@ void local_uds_server_endpoint_impl::accept_cbk(
             }
             _connection->set_bound_client_host(its_client_host);
         }
-#endif
         _connection->start();
     }
 }
@@ -485,8 +508,8 @@ void local_uds_server_endpoint_impl::connection::start() {
             ),
             &recv_buffer_[recv_buffer_size_],
             left_buffer_size,
-            std::numeric_limits<std::uint32_t>::max(),
-            std::numeric_limits<std::uint32_t>::max(),
+            std::numeric_limits<uid_t>::max(),
+            std::numeric_limits<gid_t>::max(),
             std::numeric_limits<std::size_t>::min()
         );
 
@@ -603,8 +626,9 @@ void local_uds_server_endpoint_impl::connection::send_cbk(const message_buffer_p
 }
 
 void local_uds_server_endpoint_impl::connection::receive_cbk(
-        boost::system::error_code const &_error, std::size_t _bytes,
-        std::uint32_t const &_uid, std::uint32_t const &_gid)
+        boost::system::error_code const &_error, std::size_t _bytes
+        , uid_t const &_uid, gid_t const &_gid
+)
 {
     std::shared_ptr<local_uds_server_endpoint_impl> its_server(server_.lock());
     if (!its_server) {

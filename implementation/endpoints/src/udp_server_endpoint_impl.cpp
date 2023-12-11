@@ -122,6 +122,7 @@ udp_server_endpoint_impl::udp_server_endpoint_impl(
 #ifdef __linux__
     // If regular setting of the buffer size did not work, try to force
     // (requires CAP_NET_ADMIN to be successful)
+    // TODO: (Matt) maybe on QNX we need ability QNX_PRIV_ADMIN
     if (its_option.value() < 0
             || its_option.value() < its_udp_recv_buffer_size) {
         ec.assign(setsockopt(unicast_socket_.native_handle(),
@@ -922,9 +923,10 @@ udp_server_endpoint_impl::set_multicast_option(
 
             boost::asio::socket_base::receive_buffer_size its_option;
             multicast_socket_->get_option(its_option, ec);
-#ifdef __linux__
+#if defined(__linux__)
             // If regular setting of the buffer size did not work, try to force
             // (requires CAP_NET_ADMIN to be successful)
+            // TODO: (Matt) maybe on QNX we need ability QNX_PRIV_ADMIN
             if (its_option.value() < 0
                     || its_option.value() < its_udp_recv_buffer_size) {
                 ec.assign(setsockopt(multicast_socket_->native_handle(),

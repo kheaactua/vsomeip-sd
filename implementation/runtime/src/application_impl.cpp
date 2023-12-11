@@ -59,6 +59,26 @@ namespace vsomeip_v3 {
 configuration::~configuration() {}
 #endif
 
+/**
+ * \brief Return true if called by the "main" thread.
+ *
+ * The "main" thread in this case refers to vsomeip's main application_impl
+ * thread.  Reviewing the code the main thread will call this function first,
+ * thus storing it's identity.
+ *
+ * Previously this was enforced with a lib constructor that invoked this method,
+ * however that was incompatible with creating a static variant of vsomeip and
+ * was problematic in other ways.
+ */
+static auto is_main_thread() -> bool
+{
+    // Assumption is that this is set before all the threads are launched, so
+    // we're saving the main thread id
+    static auto main_tid = std::this_thread::get_id();
+
+    return main_tid == std::this_thread::get_id();
+}
+
 uint32_t application_impl::app_counter__ = 0;
 std::mutex application_impl::app_counter_mutex__;
 
@@ -182,9 +202,14 @@ bool application_impl::init() {
 
     if (configuration_->is_local_routing()) {
         sec_client_.port = VSOMEIP_SEC_PORT_UNUSED;
-#ifdef __unix__
+#if defined(__linux__) || defined(ANDROID)
         sec_client_.user = getuid();
         sec_client_.group = getgid();
+#elif defined(__QNX__)
+        // Until credentials are supported on QNX, use ANY.  See comments in
+        // credentials.hpp::receive_credentials (boost would need to be patched)
+        sec_client_.user = ANY_UID;
+        sec_client_.group = ANY_GID;
 #else
         sec_client_.user = ANY_UID;
         sec_client_.group = ANY_GID;
@@ -222,7 +247,7 @@ bool application_impl::init() {
     }
 
     auto client_side_logging = clientSideLogging().value_or(nullptr);
-    if (client_side_logging) {
+    if (nullptr != client_side_logging) {
         client_side_logging_ = true;
         VSOMEIP_INFO << "Client side logging for application: " << name_
                 << " is enabled";
@@ -388,13 +413,23 @@ bool application_impl::init() {
 }
 
 void application_impl::start() {
-#if defined(__linux__) || defined(ANDROID)
-    if (getpid() != static_cast<pid_t>(syscall(SYS_gettid))) {
-        // only set threadname if calling thread isn't the main thread
-        std::stringstream s;
-        s << std::hex << std::setfill('0')
-          << std::setw(4) << client_ << "_io" << std::setw(2) << 0;
-        pthread_setname_np(pthread_self(),s.str().c_str());
+#if defined(__linux__) || defined(ANDROID) || defined(__QNX__)
+    {
+        int err = 0;
+        if (!is_main_thread()) {
+            std::stringstream s;
+            s << std::hex << std::setw(4) << std::setfill('0') << client_
+                    << "_io" << std::setw(2) << std::setfill('0') << 0;
+            err = pthread_setname_np(pthread_self(),s.str().c_str());
+        }
+        else
+        {
+            std::string s{"app_impl"};
+            err = pthread_setname_np(pthread_self(),s.c_str());
+        }
+        if (err) {
+            VSOMEIP_ERROR << "Could not rename thread: " << errno << ":" << strerror(errno);
+        }
     }
 #endif
     {
@@ -464,7 +499,7 @@ void application_impl::start() {
                             << " TID: " << std::dec << static_cast<int>(syscall(SYS_gettid))
 #endif
                             ;
-#if defined(__linux__) || defined(ANDROID)
+#if defined(__linux__) || defined(ANDROID) || defined(__QNX__)
                         {
                             std::stringstream s;
                             s << std::hex << std::setw(4) << std::setfill('0')
@@ -513,7 +548,7 @@ void application_impl::start() {
             << " TID: " << std::dec << static_cast<int>(syscall(SYS_gettid))
 #endif
     ;
-#if defined(__linux__) || defined(ANDROID)
+#if defined(__linux__) || defined(ANDROID) || defined(__QNX__)
     if ((VSOMEIP_IO_THREAD_NICE_LEVEL != io_thread_nice_level) && (io_thread_nice_level != nice(io_thread_nice_level))) {
         VSOMEIP_WARNING << "nice(" << io_thread_nice_level << ") failed " << errno << " for " << std::this_thread::get_id();
     }
@@ -1833,7 +1868,7 @@ void application_impl::main_dispatch() {
 }
 
 void application_impl::dispatch() {
-#if defined(__linux__) || defined(ANDROID)
+#if defined(__linux__) || defined(ANDROID) || defined(__QNX__)
     {
         std::stringstream s;
         s << std::hex << std::setw(4) << std::setfill('0')

@@ -10,6 +10,22 @@
 #include <endian.h>
 #elif defined(__freebsd__)
 #include <sys/endian.h>
+#elif defined(__QNX__)
+#include <sys/param.h>
+
+// I believe on QNX systems, it's preferred to use QNX functions (
+// https://www.qnx.com/developers/docs/7.1/#com.qnx.doc.neutrino.prog/topic/freedom_Endian.html
+// ) to address endian issues rather than directly manipulate bytes.
+// __BYTE_ORDER is not defined on QNX, but params.h does define BYTE_ORDER so
+// we'll substitute with that.
+
+#ifndef __LITTLE_ENDIAN
+#define __LITTLE_ENDIAN LITTLE_ENDIAN
+#endif
+#ifndef __BYTE_ORDER
+#define __BYTE_ORDER BYTE_ORDER
+#endif
+
 #else
 // TEST IF THERE COULD BE AN ERROR!
 //#error "Undefined OS (only Linux/FreeBSD are currently supported)"
