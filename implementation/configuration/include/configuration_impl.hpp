@@ -312,6 +312,10 @@ private:
             std::set<std::string> &_failed,
             bool _mandatory_only);
 #endif // !VSOMEIP_DISABLE_POLICY
+    void read_buildin_data(
+            std::vector<configuration_element> &_elements,
+            std::set<std::string>&_failed);
+
     bool load_data(const std::vector<configuration_element> &_elements,
             bool _load_mandatory, bool _load_optional);
 

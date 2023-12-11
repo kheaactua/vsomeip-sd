@@ -49,6 +49,18 @@ set(INSTALL_INCLUDE_DIR
     CACHE PATH "Installation directory for header files"
 )
 
+set(VSOMEIP_CONFIG_DIR
+    "/etc/vsomeip"
+    CACHE PATH "CAPI Runtime Configuration Directory"
+)
+if(HAS_BUILDIN_CONFIG)
+  set(VSOMEIP_COMBINED_JSON_FILE ${CMAKE_CURRENT_BINARY_DIR}/gen_config/vsomeip_config.json)
+  set(VSOMEIP_COMBINED_OBJ_FILE ${CMAKE_CURRENT_BINARY_DIR}/gen_config/vsomeip_config_${CMAKE_SYSTEM_PROCESSOR}.o)
+  string(MAKE_C_IDENTIFIER ${VSOMEIP_COMBINED_JSON_FILE} __vsomeip_config_obj_c_identifier)
+  set(GENERATED_OBJ_BINARY_TAG "_binary_${__vsomeip_config_obj_c_identifier}")
+  set(OBJ_BINARY__VSOMEIP_CONFIG_TAG "_binary__vsomeip_config")
+endif()
+
 if(WIN32 AND NOT CYGWIN)
   set(DEF_INSTALL_CMAKE_DIR CMake)
 else()
@@ -153,6 +165,17 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   # can be hooked to enable PI as needed
   add_definitions(-D_GTHREAD_USE_MUTEX_INIT_FUNC -D_GTHREAD_USE_RECURSIVE_MUTEX_INIT_FUNC)
 
+  find_program(OBJCOPY_BIN objcopy REQUIRED)
+  # Find the output target with: objdump -i | head -n 2 | tail -n 1
+  set(OBJCOPY_ARGS
+      --input-target
+      binary
+      --output-target
+      elf64-x86-64
+      --binary-architecture
+      i386:x86-64
+  )
+
   # For backtraces to work, define the following in your toolchain:
   # -DBOOST_STACKTRACE_BACKTRACE_INCLUDE_FILE="/usr/lib/gcc/x86_64-linux-gnu/11/include/backtrace.h" (this is hardcoded
   # here as it does not necessarily represent yours system)
@@ -184,11 +207,20 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "QNX")
   add_link_options(-Wl,--wrap=socket,--wrap=accept,--wrap=open)
   target_link_libraries(OS_INTERFACE INTERFACE slog2 socket)
 
-  # Boost::stacktrace_addr2line is not available on QNX
-  # libbacktrace.so is not installed on target by default
-  target_link_libraries(STACKTRACE_INTERFACE INTERFACE
-    Boost::stacktrace_basic
-    # backtrace
+  find_program(OBJCOPY_BIN ntoaarch64-objcopy REQUIRED)
+  set(OBJCOPY_ARGS
+      --input-target
+      binary
+      --output-target
+      elf64-littleaarch64
+      --binary-architecture
+      ${CMAKE_SYSTEM_PROCESSOR}
+  )
+
+  # Boost::stacktrace_addr2line is not available on QNX libbacktrace.so is not installed on target by default
+  target_link_libraries(
+    STACKTRACE_INTERFACE INTERFACE Boost::stacktrace_basic
+                                   # backtrace
   )
 endif()
 
@@ -245,6 +277,9 @@ endif()
 # Suppress deprecation warnings for vSomeIP interfaces
 add_definitions(-DVSOMEIP_INTERNAL_SUPPRESS_DEPRECATED)
 
+# Enable ability for built-in configuration (also must enable with env. var. VSOMEIP_LEGACY_CONFIGURATION)
+option(HAS_BUILDIN_CONFIG "Support buildin configuration")
+
 # ######################################################################################################################
 # Dependencies
 # ######################################################################################################################
@@ -257,7 +292,13 @@ if(NOT Boost_FOUND)
 endif()
 
 include(CMakeDependentOption)
-cmake_dependent_option(BOOST_ASIO_HAS_IONOTIFY "Use QNX's ionotifier reactor" TRUE "${CMAKE_SYSTEM_NAME} MATCHES QNX" FALSE)
+cmake_dependent_option(
+  BOOST_ASIO_HAS_IONOTIFY
+  "Use QNX's ionotifier reactor"
+  TRUE
+  "${CMAKE_SYSTEM_NAME} MATCHES QNX"
+  FALSE
+)
 
 # cmake 3.15 introduced a new variable and a new format for the old one
 if(DEFINED Boost_VERSION_MACRO)
@@ -382,7 +423,8 @@ if(WIN32)
 endif()
 
 add_library(vsomeip3 SHARED)
-target_sources(vsomeip3 PRIVATE ${vsomeip3_SRC})
+target_sources(vsomeip3 PRIVATE ${vsomeip3_SRC} ${VSOMEIP_COMBINED_OBJ_FILE})
+
 target_include_directories(
   vsomeip3
   PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/interface>
@@ -402,6 +444,9 @@ if(${BOOST_ASIO_HAS_IONOTIFY})
   target_compile_definitions(vsomeip3 PUBLIC BOOST_ASIO_HAS_IONOTIFY)
 else()
   target_compile_definitions(vsomeip3 PUBLIC BOOST_ASIO_DISABLE_IONOTIFY)
+endif()
+if(HAS_BUILDIN_CONFIG)
+  target_compile_definitions(vsomeip3 PRIVATE VSOMEIP_BUILDIN_CONFIGURATION)
 endif()
 target_include_directories(vsomeip3 SYSTEM PUBLIC $<BUILD_INTERFACE:${Boost_INCLUDE_DIRS}>)
 target_link_libraries(vsomeip3 PRIVATE STACKTRACE_INTERFACE)
@@ -429,6 +474,39 @@ target_link_libraries(
 if(NOT WIN32)
   target_link_options(${VSOMEIP_NAME} PRIVATE "LINKER:-as-needed")
 endif()
+
+if(HAS_BUILDIN_CONFIG)
+  if(IS_DIRECTORY ${VSOMEIP_CONFIG_DIR})
+    file(GLOB JSON_CONFIG_FILES ${VSOMEIP_CONFIG_DIR}/*.json)
+  else()
+    message(FATAL_ERROR "VSOMEIP_CONFIG_DIR: ${VSOMEIP_CONFIG_DIR} does not exist")
+  endif()
+endif()
+
+if(HAS_BUILDIN_CONFIG)
+  add_custom_command(
+    OUTPUT "${VSOMEIP_COMBINED_JSON_FILE}"
+    COMMENT "Generating vsomeip configuration: ${VSOMEIP_COMBINED_JSON_FILE} from ${JSON_CONFIG_FILES}"
+    COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/gen_config
+    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/deepmerge.py [[$<$<NOT:$<CONFIG:Debug>>:-c>]] --output
+            ${VSOMEIP_COMBINED_JSON_FILE} ${JSON_CONFIG_FILES}
+    COMMAND_EXPAND_LISTS
+  )
+
+  add_custom_command(
+    OUTPUT "${VSOMEIP_COMBINED_OBJ_FILE}"
+    COMMENT "Generating vsomeip config ${CMAKE_SYSTEM_PROCESSOR} object: ${VSOMEIP_COMBINED_OBJ_FILE}"
+    COMMAND ${OBJCOPY_BIN} ${OBJCOPY_ARGS} ${VSOMEIP_COMBINED_JSON_FILE} ${VSOMEIP_COMBINED_OBJ_FILE}
+    COMMENT "redefine-sym ${GENERATED_OBJ_BINARY_TAG} → ${OBJ_BINARY__VSOMEIP_CONFIG_TAG}"
+    COMMAND
+      ${OBJCOPY_BIN} --redefine-sym ${GENERATED_OBJ_BINARY_TAG}_start=${OBJ_BINARY__VSOMEIP_CONFIG_TAG}_start
+      --redefine-sym ${GENERATED_OBJ_BINARY_TAG}_end=${OBJ_BINARY__VSOMEIP_CONFIG_TAG}_end --redefine-sym
+      ${GENERATED_OBJ_BINARY_TAG}_size=${OBJ_BINARY__VSOMEIP_CONFIG_TAG}_size ${VSOMEIP_COMBINED_OBJ_FILE}
+    DEPENDS ${VSOMEIP_COMBINED_JSON_FILE}
+  )
+endif()
+
+add_custom_target(generate_config_obj ALL DEPENDS "${VSOMEIP_COMBINED_OBJ_FILE}")
 
 # ######################################################################################################################
 # Service Discovery library
@@ -540,7 +618,10 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "QNX")
 else()
   set(VSOMEIP_BASE_PATH_DEFAULT "/tmp")
 endif()
-set(VSOMEIP_BASE_PATH ${VSOMEIP_BASE_PATH_DEFAULT} CACHE PATH "Base path for vsomeip sockets")
+set(VSOMEIP_BASE_PATH
+    ${VSOMEIP_BASE_PATH_DEFAULT}
+    CACHE PATH "Base path for vsomeip sockets"
+)
 
 set(VSOMEIP_DIAGNOSIS_ADDRESS "0x01")
 if(DIAGNOSIS_ADDRESS)
@@ -802,7 +883,7 @@ endif()
 find_program(ASCIIDOC_PATH asciidoc)
 find_program(SOURCE_HIGHLIGHT_PATH source-highlight)
 if("${ASCIIDOC_PATH}" STREQUAL "ASCIIDOC_PATH-NOTFOUND")
-  message(WARNING "asciidoc is not installed. Readme can not be built.")
+  message(WARNING "asciidoc is not installed. Readme can not be built. This may require a pip3 install asciidoc3")
 elseif("${SOURCE_HIGHLIGHT_PATH}" STREQUAL "SOURCE_HIGHLIGHT_PATH-NOTFOUND")
   message(WARNING "source-highlight is not installed. Readme can not be built.")
 else()
