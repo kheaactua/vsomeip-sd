@@ -85,14 +85,43 @@ message::~message() try {
     if (!its_configuration)
         return;
 
+    // Write to logcat before filtering on the level.  This way we can employ
+    // the `[persist.]log.tag.<tag>=<V|I||W|F>`
+    if (its_configuration->has_logcat_log()) {
+#ifdef ANDROID
+        switch (level_) {
+        case level_e::LL_FATAL:
+            static_cast<void>(__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "%s", buffer_.data_.str().c_str()));
+            break;
+        case level_e::LL_ERROR:
+            static_cast<void>(__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "%s", buffer_.data_.str().c_str()));
+            break;
+        case level_e::LL_WARNING:
+            static_cast<void>(__android_log_print(ANDROID_LOG_WARN, LOG_TAG, "%s", buffer_.data_.str().c_str()));
+            break;
+        case level_e::LL_INFO:
+            static_cast<void>(__android_log_print(ANDROID_LOG_INFO, LOG_TAG, "%s", buffer_.data_.str().c_str()));
+            break;
+        case level_e::LL_DEBUG:
+            static_cast<void>(__android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "%s", buffer_.data_.str().c_str()));
+            break;
+        case level_e::LL_VERBOSE:
+            static_cast<void>(__android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", buffer_.data_.str().c_str()));
+            break;
+        default:
+            static_cast<void>(__android_log_print(ANDROID_LOG_INFO, LOG_TAG, "%s", buffer_.data_.str().c_str()));
+        };
+#endif // ANDROID
+    }
+
     if (level_ > its_configuration->get_loglevel())
         return;
 
-    if (its_configuration->has_console_log()
-            || its_configuration->has_file_log()) {
-
+    std::string its_level;
+    if (its_configuration->has_console_log() || its_configuration->has_file_log())
+    {
         // Prepare log level
-        const char *its_level;
+        std::string its_level;
         switch (level_) {
         case level_e::LL_FATAL:
             its_level = "fatal";
@@ -127,7 +156,6 @@ message::~message() try {
         auto its_ms = (when_.time_since_epoch().count() / 100) % 1000000;
 
         if (its_configuration->has_console_log()) {
-#ifndef ANDROID
             std::cout
                 << std::dec
                 << std::setw(4) << its_time.tm_year + 1900 << "-"
@@ -141,34 +169,6 @@ message::~message() try {
                 << its_level << "] "
                 << buffer_.data_.str()
                 << std::endl;
-#else
-            if (its_configuration->has_logcat_log()) {
-                std::string const app = runtime::get_property("LogApplication");
-
-                switch (level_) {
-                case level_e::LL_FATAL:
-                    ALOGE(app.c_str(), ("VSIP: " + buffer_.data_.str()).c_str());
-                    break;
-                case level_e::LL_ERROR:
-                    ALOGE(app.c_str(), ("VSIP: " + buffer_.data_.str()).c_str());
-                    break;
-                case level_e::LL_WARNING:
-                    ALOGW(app.c_str(), ("VSIP: " + buffer_.data_.str()).c_str());
-                    break;
-                case level_e::LL_INFO:
-                    ALOGI(app.c_str(), ("VSIP: " + buffer_.data_.str()).c_str());
-                    break;
-                case level_e::LL_DEBUG:
-                    ALOGD(app.c_str(), ("VSIP: " + buffer_.data_.str()).c_str());
-                    break;
-                case level_e::LL_VERBOSE:
-                    ALOGV(app.c_str(), ("VSIP: " + buffer_.data_.str()).c_str());
-                    break;
-                default:
-                    ALOGI(app.c_str(), ("VSIP: " + buffer_.data_.str()).c_str());
-                };
-            }
-#endif // !ANDROID
         }
 
         if (its_configuration->has_file_log()) {
