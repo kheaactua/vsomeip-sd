@@ -112,6 +112,11 @@ find_package(
   OPTIONAL_COMPONENTS stacktrace_basic stacktrace_backtrace stacktrace_addr2line
 )
 
+add_library(DLT INTERFACE IMPORTED)
+target_include_directories(DLT INTERFACE ${DLT_INCLUDE_DIRS})
+target_link_directories(DLT INTERFACE ${DLT_LIBDIR})
+target_link_libraries(DLT INTERFACE ${DLT_LIBRARIES})
+
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   set(OS "LINUX")
   target_link_libraries(DL_INTERFACE INTERFACE dl)
@@ -602,6 +607,22 @@ install(
           DESTINATION "${INSTALL_BIN_DIR}"
           COMPONENT bin
 )
+if(TARGET Genivi::dlt)
+  install(
+    IMPORTED_RUNTIME_ARTIFACTS
+    Genivi::dlt
+    RUNTIME
+    DESTINATION
+    "${INSTALL_BIN_DIR}"
+    COMPONENT
+    bin
+    LIBRARY
+    DESTINATION
+    "${INSTALL_LIB_DIR}"
+    COMPONENT
+    shlib
+  )
+endif()
 
 if(VSOMEIP_ENABLE_MULTIPLE_ROUTING_MANAGERS EQUAL 0)
   install(
