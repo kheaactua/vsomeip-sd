@@ -3,6 +3,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+cmake_minimum_required (VERSION 3.24)
+
 set(EXAMPLE_CONFIG_FILES
     "../config/vsomeip.json"
     "../config/vsomeip-local.json"
@@ -14,16 +16,16 @@ set(EXAMPLE_CONFIG_FILES
 
 # Examples
 add_executable(request-sample request-sample.cpp ${EXAMPLE_CONFIG_FILES})
-target_link_libraries(request-sample ${VSOMEIP_NAME} ${Boost_LIBRARIES} ${DL_LIBRARY})
+target_link_libraries(request-sample vsomeip3 ${Boost_LIBRARIES} DL_INTERFACE)
 
 add_executable(response-sample response-sample.cpp ${EXAMPLE_CONFIG_FILES})
-target_link_libraries(response-sample ${VSOMEIP_NAME} ${Boost_LIBRARIES} ${DL_LIBRARY})
+target_link_libraries(response-sample vsomeip3 ${Boost_LIBRARIES} DL_INTERFACE)
 
 add_executable(subscribe-sample subscribe-sample.cpp ${EXAMPLE_CONFIG_FILES})
-target_link_libraries(subscribe-sample ${VSOMEIP_NAME} ${Boost_LIBRARIES} ${DL_LIBRARY})
+target_link_libraries(subscribe-sample vsomeip3 ${Boost_LIBRARIES} DL_INTERFACE)
 
 add_executable(notify-sample notify-sample.cpp ${EXAMPLE_CONFIG_FILES})
-target_link_libraries(notify-sample ${VSOMEIP_NAME} ${Boost_LIBRARIES} ${DL_LIBRARY})
+target_link_libraries(notify-sample vsomeip3 ${Boost_LIBRARIES} DL_INTERFACE)
 
 add_dependencies(examples request-sample response-sample subscribe-sample notify-sample)
 
