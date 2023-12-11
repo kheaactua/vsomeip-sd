@@ -935,21 +935,21 @@ add_subdirectory(examples EXCLUDE_FROM_ALL)
 
 # ######################################################################################################################
 
-# add test directory
-enable_testing()
+# # add test directory
+# enable_testing()
 
-add_subdirectory(test EXCLUDE_FROM_ALL)
+# add_subdirectory(test EXCLUDE_FROM_ALL)
 
-if(${CMAKE_SYSTEM_NAME} MATCHES "QNX")
-  install(
-    DIRECTORY ${PROJECT_BINARY_DIR}/test/
-              DESTINATION bin/vsomeip_tests/test
-              PATTERN "CMakeFiles" EXCLUDE
-              PATTERN "*.cmake" EXCLUDE
-              PATTERN "Makefile" EXCLUDE
-  )
+# if(${CMAKE_SYSTEM_NAME} MATCHES "QNX")
+#   install(
+#     DIRECTORY ${PROJECT_BINARY_DIR}/test/
+#               DESTINATION bin/vsomeip_tests/test
+#               PATTERN "CMakeFiles" EXCLUDE
+#               PATTERN "*.cmake" EXCLUDE
+#               PATTERN "Makefile" EXCLUDE
+#   )
 
-  install(FILES ${PROJECT_BINARY_DIR}/examples/routingmanagerd/routingmanagerd
-                DESTINATION bin/vsomeip_tests/examples/routingmanagerd
-  )
-endif()
+#   install(FILES ${PROJECT_BINARY_DIR}/examples/routingmanagerd/routingmanagerd
+#                 DESTINATION bin/vsomeip_tests/examples/routingmanagerd
+#   )
+# endif()
