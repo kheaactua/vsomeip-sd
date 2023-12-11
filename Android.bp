@@ -127,6 +127,20 @@ cc_defaults {
     vendor_available: true,
 }
 
+sysprop_library {
+    name: "vsomeip.system.logging_properties",
+    srcs: ["android/sysprop/PlatformLoggingProperties.sysprop"],
+    property_owner: "Platform",
+    vendor: false,
+}
+
+sysprop_library {
+    name: "vsomeip.vendor.logging_properties",
+    srcs: ["android/sysprop/VendorLoggingProperties.sysprop"],
+    property_owner: "Vendor",
+    vendor: true,
+}
+
 // TODO: write a genrule for internal.hpp.in -> internal.hpp
 // Note, there is an internal_android.hpp file
 
@@ -174,7 +188,15 @@ cc_library {
             "libboost_filesystem",
             "liblog",
             "libutils",
+            "vsomeip.system.logging_properties",
         ],
+    },
+
+    target: {
+        vendor: {
+            exclude_shared_libs: ["vsomeip.system.logging_properties"],
+            shared_libs: ["vsomeip.vendor.logging_properties"],
+        },
     },
 }
 
@@ -200,8 +222,16 @@ cc_library {
             "libvsomeip3",
             "libboost_system",
             "libboost_filesystem",
+            "vsomeip.system.logging_properties",
             "liblog",
         ],
+    },
+
+    target: {
+        vendor: {
+            exclude_shared_libs: ["vsomeip.system.logging_properties"],
+            shared_libs: ["vsomeip.vendor.logging_properties"],
+        },
     },
 
     // Because we use VSOMEIP_ENABLE_MULTIPLE_ROUTING_MANAGERS, no consumer

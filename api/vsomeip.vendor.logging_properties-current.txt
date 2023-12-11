@@ -1,0 +1,26 @@
+props {
+  owner: Vendor
+  module: "ford.sysprop.amf.vsomeip"
+  prop {
+    api_name: "file_log"
+    access: ReadWrite
+    prop_name: "persist.vendor.amf.vsomeip.log.file"
+  }
+  prop {
+    api_name: "log_level"
+    type: Enum
+    access: ReadWrite
+    prop_name: "persist.vendor.amf.vsomeip.log.level"
+    enum_values: "none|fatal|error|warning|info|debug|verbose"
+  }
+  prop {
+    api_name: "log_override"
+    access: ReadWrite
+    prop_name: "persist.vendor.amf.vsomeip.log.override"
+  }
+  prop {
+    api_name: "logcat"
+    access: ReadWrite
+    prop_name: "persist.vendor.amf.vsomeip.log.logcat"
+  }
+}

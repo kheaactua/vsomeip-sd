@@ -15,6 +15,15 @@
 #define WIN32_LEAN_AND_MEAN
 #define BOOST_BIND_GLOBAL_PLACEHOLDERS
 
+#ifdef ANDROID
+#include <android/log.h>
+#ifdef AOSP_SYSTEM_PARTITION
+#include <android/sysprop/PlatformLoggingProperties.sysprop.h>
+#else
+#include <android/sysprop/VendorLoggingProperties.sysprop.h>
+#endif
+#endif
+
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/foreach.hpp>
@@ -41,8 +50,57 @@
 #include "../../security/include/policy_manager_impl.hpp"
 #include "../../security/include/security.hpp"
 
+#ifdef ANDROID
+namespace props = ::ford::sysprop::amf::vsomeip;
+#endif
+
 namespace vsomeip_v3 {
 namespace cfg {
+
+inline auto loglevel_string_to_level(std::string const& level_name) -> logger::level_e
+{
+    using namespace vsomeip_v3::logger;
+    auto const level
+        = (level_name == "trace" ?
+                level_e::LL_VERBOSE :
+          (level_name == "debug" ?
+                  level_e::LL_DEBUG :
+          (level_name == "info" ?
+                  level_e::LL_INFO :
+          (level_name == "warning" ?
+                  level_e::LL_WARNING :
+          (level_name == "error" ?
+                  level_e::LL_ERROR :
+          (level_name == "fatal" ?
+                  level_e::LL_FATAL :
+                  level_e::LL_INFO))))));
+
+    return level;
+}
+
+#ifdef ANDROID
+inline constexpr auto loglevel_enum_to_level(props::log_level_values level_name) -> logger::level_e
+{
+    using namespace props;
+    using namespace vsomeip_v3::logger;
+    auto const level
+        = (level_name == log_level_values::VERBOSE ?
+                level_e::LL_VERBOSE :
+          (level_name == log_level_values::DEBUG ?
+                  level_e::LL_DEBUG :
+          (level_name == log_level_values::INFO ?
+                  level_e::LL_INFO :
+          (level_name == log_level_values::WARNING ?
+                  level_e::LL_WARNING :
+          (level_name == log_level_values::ERROR ?
+                  level_e::LL_ERROR :
+          (level_name == log_level_values::FATAL ?
+                  level_e::LL_FATAL :
+                  level_e::LL_INFO))))));
+
+    return level;
+}
+#endif
 
 configuration_impl::configuration_impl(const std::string &_path)
     : default_unicast_("local"),
@@ -661,20 +719,7 @@ bool configuration_impl::load_logging(
                 } else {
                     std::string its_value(i->second.data());
                     std::lock_guard<std::mutex> lock(mutex_loglevel_);
-                    loglevel_
-                        = (its_value == "trace" ?
-                                vsomeip_v3::logger::level_e::LL_VERBOSE :
-                          (its_value == "debug" ?
-                                  vsomeip_v3::logger::level_e::LL_DEBUG :
-                          (its_value == "info" ?
-                                  vsomeip_v3::logger::level_e::LL_INFO :
-                          (its_value == "warning" ?
-                                  vsomeip_v3::logger::level_e::LL_WARNING :
-                          (its_value == "error" ?
-                                  vsomeip_v3::logger::level_e::LL_ERROR :
-                          (its_value == "fatal" ?
-                                  vsomeip_v3::logger::level_e::LL_FATAL :
-                                  vsomeip_v3::logger::level_e::LL_INFO))))));
+                    loglevel_ = loglevel_string_to_level(its_value);
                     is_configured_[ET_LOGGING_LEVEL] = true;
                 }
             } else if (its_key == "version") {
@@ -2882,10 +2927,24 @@ bool configuration_impl::is_v6() const {
 }
 
 bool configuration_impl::has_console_log() const {
+#ifdef ANDROID
+    // Query properties for vsomeip property overrides
+    if (::props::log_override().value_or(false))
+    {
+        return ::props::logcat().value_or(false);
+    }
+#endif
     return has_console_log_;
 }
 
 bool configuration_impl::has_file_log() const {
+#ifdef ANDROID
+    // Query properties for vsomeip property overrides
+    if (::props::log_override().value_or(false))
+    {
+        return ::props::file_log().value_or(false);
+    }
+#endif
     return has_file_log_;
 }
 
@@ -2899,6 +2958,16 @@ const std::string & configuration_impl::get_logfile() const {
 
 vsomeip_v3::logger::level_e configuration_impl::get_loglevel() const {
     std::unique_lock<std::mutex> its_lock(mutex_loglevel_);
+#ifdef ANDROID
+    // Query properties for vsomeip property overrides
+    if (::props::log_override().value_or(false))
+    {
+        auto const level = ::props::log_level().value_or(props::log_level_values::INFO);
+        auto const level_enum = loglevel_enum_to_level(level);
+
+        return level_enum;
+    }
+#endif
     return loglevel_;
 }
 
