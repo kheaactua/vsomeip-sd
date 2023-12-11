@@ -237,7 +237,7 @@ bool configuration_impl::load(const std::string &_name) {
         return true;
 
     // Environment
-    char *its_env;
+    char *its_env = nullptr;
 
     // Predefine file / folder
     std::string its_file(VSOMEIP_DEFAULT_CONFIGURATION_FILE); // configuration file
@@ -332,7 +332,7 @@ bool configuration_impl::load(const std::string &_name) {
 
     // Tell, if reading of configuration file(s) failed.
     // (This may file if the logger configuration is incomplete/missing).
-    for (auto f : its_failed)
+    for (auto const& f : its_failed)
         VSOMEIP_WARNING << "Reading of configuration file \""
             << f << "\" failed. Configuration may be incomplete.";
 
@@ -341,7 +341,7 @@ bool configuration_impl::load(const std::string &_name) {
 
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 
-    for (auto i : its_input) {
+    for (auto const& i : its_input) {
         if (utility::is_file(i))
             VSOMEIP_INFO << "Using configuration file: \"" << i << "\".";
 
@@ -560,7 +560,7 @@ bool configuration_impl::load_data(const std::vector<configuration_element> &_el
 
         if (is_logging_loaded_) {
             logger::logger_impl::init(shared_from_this());
-            for (auto w : its_warnings)
+            for (auto const& w : its_warnings)
                 VSOMEIP_WARNING << w;
         }
     }

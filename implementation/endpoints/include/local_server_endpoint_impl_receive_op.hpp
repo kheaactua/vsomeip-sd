@@ -25,8 +25,8 @@ struct storage :
 {
     socket_type_t &socket_;
     receive_handler_t handler_;
-    byte_t *buffer_;
-    std::size_t length_;
+    byte_t *buffer_ = nullptr;
+    size_t length_;
     uid_t uid_;
     gid_t gid_;
     size_t bytes_;
@@ -50,8 +50,8 @@ struct storage :
 };
 
 inline
-std::function<void(boost::system::error_code _error)> 
-receive_cb (std::shared_ptr<storage> _data) {
+std::function<void(boost::system::error_code _error)>
+receive_cb(std::shared_ptr<storage> _data) {
     return [_data](boost::system::error_code _error) {
         if (!_error) {
             if (!_data->socket_.native_non_blocking())

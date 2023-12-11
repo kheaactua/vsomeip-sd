@@ -35,7 +35,7 @@ struct storage :
     socket_type_t &socket_;
     endpoint_type_t &sender_;
     receive_handler_t handler_;
-    byte_t *buffer_;
+    byte_t *buffer_ = nullptr;
     size_t length_;
     std::uint8_t multicast_id_;
     bool is_v4_;
@@ -275,7 +275,7 @@ receive_cb (std::shared_ptr<storage> _data) {
                 if (_error == boost::asio::error::would_block
                         || _error == boost::asio::error::try_again) {
                     _data->socket_.async_wait(
-                        socket_type_t::wait_read, 
+                        socket_type_t::wait_read,
                         receive_cb(_data)
                     );
                     return;
