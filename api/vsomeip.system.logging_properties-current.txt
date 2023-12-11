@@ -1,6 +1,11 @@
 props {
   module: "ford.sysprop.amf.vsomeip"
   prop {
+    api_name: "console"
+    access: ReadWrite
+    prop_name: "persist.system.amf.vsomeip.log.console"
+  }
+  prop {
     api_name: "file_log"
     access: ReadWrite
     prop_name: "persist.system.amf.vsomeip.log.file"

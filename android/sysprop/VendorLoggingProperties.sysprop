@@ -64,3 +64,11 @@ prop {
     scope: Public
     access: Readonly
 }
+
+prop {
+    api_name: "console_log"
+    type: Boolean
+    prop_name: "persist.vendor.amf.vsomeip.log.console"
+    scope: Public
+    access: ReadWrite
+}

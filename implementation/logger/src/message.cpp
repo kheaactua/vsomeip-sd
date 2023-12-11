@@ -142,30 +142,32 @@ message::~message() try {
                 << buffer_.data_.str()
                 << std::endl;
 #else
-            std::string app = runtime::get_property("LogApplication");
+            if (its_configuration->has_logcat_log()) {
+                std::string const app = runtime::get_property("LogApplication");
 
-            switch (level_) {
-            case level_e::LL_FATAL:
-                ALOGE(app.c_str(), ("VSIP: " + buffer_.data_.str()).c_str());
-                break;
-            case level_e::LL_ERROR:
-                ALOGE(app.c_str(), ("VSIP: " + buffer_.data_.str()).c_str());
-                break;
-            case level_e::LL_WARNING:
-                ALOGW(app.c_str(), ("VSIP: " + buffer_.data_.str()).c_str());
-                break;
-            case level_e::LL_INFO:
-                ALOGI(app.c_str(), ("VSIP: " + buffer_.data_.str()).c_str());
-                break;
-            case level_e::LL_DEBUG:
-                ALOGD(app.c_str(), ("VSIP: " + buffer_.data_.str()).c_str());
-                break;
-            case level_e::LL_VERBOSE:
-                ALOGV(app.c_str(), ("VSIP: " + buffer_.data_.str()).c_str());
-                break;
-            default:
-                ALOGI(app.c_str(), ("VSIP: " + buffer_.data_.str()).c_str());
-            };
+                switch (level_) {
+                case level_e::LL_FATAL:
+                    ALOGE(app.c_str(), ("VSIP: " + buffer_.data_.str()).c_str());
+                    break;
+                case level_e::LL_ERROR:
+                    ALOGE(app.c_str(), ("VSIP: " + buffer_.data_.str()).c_str());
+                    break;
+                case level_e::LL_WARNING:
+                    ALOGW(app.c_str(), ("VSIP: " + buffer_.data_.str()).c_str());
+                    break;
+                case level_e::LL_INFO:
+                    ALOGI(app.c_str(), ("VSIP: " + buffer_.data_.str()).c_str());
+                    break;
+                case level_e::LL_DEBUG:
+                    ALOGD(app.c_str(), ("VSIP: " + buffer_.data_.str()).c_str());
+                    break;
+                case level_e::LL_VERBOSE:
+                    ALOGV(app.c_str(), ("VSIP: " + buffer_.data_.str()).c_str());
+                    break;
+                default:
+                    ALOGI(app.c_str(), ("VSIP: " + buffer_.data_.str()).c_str());
+                };
+            }
 #endif // !ANDROID
         }
 

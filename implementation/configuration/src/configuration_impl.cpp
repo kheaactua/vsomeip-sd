@@ -110,6 +110,11 @@ configuration_impl::configuration_impl(const std::string &_path)
       diagnosis_(VSOMEIP_DIAGNOSIS_ADDRESS),
       diagnosis_mask_(0xFF00),
       has_console_log_(true),
+#ifdef ANDROID
+      has_logcat_log_(true),
+#else
+      has_logcat_log_(false),
+#endif
       has_file_log_(false),
       has_dlt_log_(false),
       logfile_("/tmp/vsomeip.log"),
@@ -218,6 +223,7 @@ configuration_impl::configuration_impl(const configuration_impl &_other)
     diagnosis_mask_ = _other.diagnosis_mask_;
 
     has_console_log_ = _other.has_console_log_;
+    has_logcat_log_ = _other.has_logcat_log_;
     has_file_log_ = _other.has_file_log_;
     has_dlt_log_ = _other.has_dlt_log_;
     logfile_ = _other.logfile_;
@@ -686,6 +692,15 @@ bool configuration_impl::load_logging(
                         has_console_log_ = true;
                     #endif
                     is_configured_[ET_LOGGING_CONSOLE] = true;
+                }
+            } else if (its_key == "logcat") {
+                if (is_configured_[ET_LOGGING_LOGCAT]) {
+                    _warnings.insert("Multiple definitions for logging.logcat."
+                            " Ignoring definition from " + _element.name_);
+                } else {
+                    std::string its_value(i->second.data());
+                    has_logcat_log_ = (its_value == "true");
+                    is_configured_[ET_LOGGING_LOGCAT] = true;
                 }
             } else if (its_key == "file") {
                 if (is_configured_[ET_LOGGING_FILE]) {
@@ -2931,10 +2946,20 @@ bool configuration_impl::has_console_log() const {
     // Query properties for vsomeip property overrides
     if (::props::log_override().value_or(false))
     {
-        return ::props::logcat().value_or(false);
+        return ::props::console_log().value_or(false);
     }
 #endif
     return has_console_log_;
+}
+
+bool configuration_impl::has_logcat_log() const {
+#ifdef ANDROID
+    if (::props::log_override().value_or(false))
+    {
+        return ::props::logcat_log().value_or(false);
+    }
+#endif
+    return has_logcat_log_;
 }
 
 bool configuration_impl::has_file_log() const {

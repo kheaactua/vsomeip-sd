@@ -95,6 +95,7 @@ public:
     VSOMEIP_EXPORT bool is_v6() const;
 
     VSOMEIP_EXPORT bool has_console_log() const;
+    VSOMEIP_EXPORT bool has_logcat_log() const;
     VSOMEIP_EXPORT bool has_file_log() const;
     VSOMEIP_EXPORT bool has_dlt_log() const;
     VSOMEIP_EXPORT const std::string & get_logfile() const;
@@ -489,6 +490,7 @@ protected:
     diagnosis_t diagnosis_mask_;
 
     bool has_console_log_;
+    bool has_logcat_log_;
     bool has_file_log_;
     bool has_dlt_log_;
     std::string logfile_;
@@ -559,6 +561,7 @@ protected:
         ET_DIAGNOSIS,
         ET_DIAGNOSIS_MASK,
         ET_LOGGING_CONSOLE,
+        ET_LOGGING_LOGCAT,
         ET_LOGGING_FILE,
         ET_LOGGING_DLT,
         ET_LOGGING_LEVEL,
@@ -598,7 +601,7 @@ protected:
         ET_PARTITIONS,
         ET_SECURITY_AUDIT_MODE,
         ET_SECURITY_REMOTE_ACCESS,
-        ET_MAX = 45
+        ET_MAX = 46
     };
 
     bool is_configured_[ET_MAX];
