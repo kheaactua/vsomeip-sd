@@ -277,7 +277,7 @@ void routing_manager_stub::on_message(const byte_t *_data, length_t _size,
         VSOMEIP_WARNING << "vSomeIP Security: routing_manager_stub::on_message: "
                 << "Routing Manager received a message from client "
                 << std::hex << std::setw(4) << std::setfill('0')
-                << its_client << " with command " << (uint32_t)its_id
+                << its_client << " with command " << uint32_t(its_id)
                 << " which doesn't match the bound client "
                 << std::setw(4) << std::setfill('0') << _bound_client
                 << " ~> skip message!";
@@ -708,9 +708,9 @@ void routing_manager_stub::on_message(const byte_t *_data, length_t _size,
                         << std::setw(4) << its_service << "."
                         << std::setw(4) << its_instance << "."
                         << std::setw(4) << register_event.get_event()
-                        << ":eventtype=" << std::dec << (int)register_event.get_event_type()
+                        << ":eventtype=" << std::dec << int(register_event.get_event_type())
                         << ":is_provided=" << std::boolalpha << register_event.is_provided()
-                        << ":reliable=" << (int)register_event.get_reliability() << "]";
+                        << ":reliable=" << int(register_event.get_reliability()) << "]";
                 }
 
 
@@ -1571,7 +1571,7 @@ void routing_manager_stub::check_watchdog() {
                     for (const auto& i : routing_info_) {
                         if (i.first > 0 && i.first != host_->get_client()) {
                             if (i.second.first > configuration_->get_allowed_missing_pongs()) {
-                                VSOMEIP_WARNING << "Lost contact to application " << std::hex << (int)i.first;
+                                VSOMEIP_WARNING << "Lost contact to application " << std::hex << +i.first;
                                 lost.push_back(i.first);
                             }
                         }
@@ -1828,7 +1828,7 @@ void routing_manager_stub::update_registration(client_t _client,
     client_registration_condition_.notify_one();
 
     if (_type != registration_type_e::REGISTER) {
-        std::lock_guard<std::mutex> its_lock(used_client_ids_mutex_);
+        std::lock_guard<std::mutex> its_lock_inner(used_client_ids_mutex_);
         used_client_ids_.erase(_client);
     }
 }

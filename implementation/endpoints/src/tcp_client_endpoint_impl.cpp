@@ -214,7 +214,7 @@ void tcp_client_endpoint_impl::connect() {
                 }
                 std::size_t operations_cancelled;
                 {
-                    std::lock_guard<std::mutex> its_lock(connecting_timer_mutex_);
+                    std::lock_guard<std::mutex> its_lock_inner(connecting_timer_mutex_);
                     operations_cancelled = connecting_timer_.cancel();
                 }
                 if (operations_cancelled != 0) {
@@ -248,7 +248,7 @@ void tcp_client_endpoint_impl::connect() {
     } else {
         std::size_t operations_cancelled;
         {
-            std::lock_guard<std::mutex> its_lock(connecting_timer_mutex_);
+            std::lock_guard<std::mutex> its_lock_inner(connecting_timer_mutex_);
             operations_cancelled = connecting_timer_.cancel();
         }
         if (operations_cancelled != 0) {
@@ -581,7 +581,7 @@ void tcp_client_endpoint_impl::receive_cbk(
                     } else {
                         if (has_enabled_magic_cookies_) {
                             uint32_t its_offset = find_magic_cookie(&(*_recv_buffer)[its_iteration_gap],
-                                    (uint32_t) _recv_buffer_size);
+                                    uint32_t(_recv_buffer_size));
                             if (its_offset < current_message_size) {
                                 VSOMEIP_ERROR << "Message includes Magic Cookie. Ignoring it.";
                                 current_message_size = its_offset;
@@ -864,12 +864,12 @@ void tcp_client_endpoint_impl::handle_recv_buffer_exception(
             << std::setfill('0') << std::hex;
 
     for (std::size_t i = 0; i < _recv_buffer_size && i < 16; i++) {
-        its_message << std::setw(2) << (int) ((*_recv_buffer)[i]) << " ";
+        its_message << std::setw(2) << int((*_recv_buffer)[i]) << " ";
     }
 
     its_message << " Last 16 Bytes captured: ";
     for (int i = 15; _recv_buffer_size > 15 && i >= 0; i--) {
-        its_message << std::setw(2) << (int) ((*_recv_buffer)[static_cast<size_t>(i)]) << " ";
+        its_message << std::setw(2) << int((*_recv_buffer)[static_cast<size_t>(i)]) << " ";
     }
     VSOMEIP_ERROR << its_message.str();
     _recv_buffer->clear();

@@ -189,7 +189,7 @@ void routing_manager_client::stop() {
 #endif
 
     {
-        std::lock_guard<std::mutex> its_lock(request_timer_mutex_);
+        std::lock_guard<std::mutex> its_lock_inner(request_timer_mutex_);
         request_debounce_timer_.cancel();
     }
 
@@ -199,7 +199,7 @@ void routing_manager_client::stop() {
     receiver_ = nullptr;
 
     {
-        std::lock_guard<std::mutex> its_lock(sender_mutex_);
+        std::lock_guard<std::mutex> its_lock_inner(sender_mutex_);
         if (sender_) {
             sender_->stop();
         }
@@ -389,7 +389,7 @@ void routing_manager_client::stop_offer_service(client_t _client,
             its_command.serialize(its_buffer, its_error);
 
             if (its_error == protocol::error_e::ERROR_OK) {
-                std::lock_guard<std::mutex> its_lock(sender_mutex_);
+                std::lock_guard<std::mutex> its_lock_inner(sender_mutex_);
                 if (sender_) {
                     sender_->send(&its_buffer[0], uint32_t(its_buffer.size()));
                 }
@@ -428,7 +428,7 @@ void routing_manager_client::request_service(client_t _client,
             requests_.insert(request);
         } else {
             requests_to_debounce_.insert(request);
-            std::lock_guard<std::mutex> its_lock(request_timer_mutex_);
+            std::lock_guard<std::mutex> its_lock_inner(request_timer_mutex_);
             if (!request_debounce_timer_running_) {
                 request_debounce_timer_running_ = true;
                 request_debounce_timer_.expires_from_now(std::chrono::milliseconds(request_debouncing_time));
@@ -465,15 +465,15 @@ void routing_manager_client::release_service(client_t _client,
         }
 
         {
-            auto it = requests_.begin();
-            while (it != requests_.end()) {
-                if (it->service_ == _service
-                 && it->instance_ == _instance) {
+            auto it_inner = requests_.begin();
+            while (it_inner != requests_.end()) {
+                if (it_inner->service_ == _service
+                 && it_inner->instance_ == _instance) {
                     break;
                 }
-                it++;
+                it_inner++;
             }
-            if (it != requests_.end()) requests_.erase(it);
+            if (it_inner != requests_.end()) requests_.erase(it_inner);
         }
     }
 }
@@ -579,7 +579,7 @@ void routing_manager_client::unregister_event(client_t _client,
             protocol::error_e its_error;
             its_command.serialize(its_buffer, its_error);
             if (its_error == protocol::error_e::ERROR_OK) {
-                std::lock_guard<std::mutex> its_lock(sender_mutex_);
+                std::lock_guard<std::mutex> its_lock_inner(sender_mutex_);
                 if (sender_) {
                     sender_->send(&its_buffer[0], uint32_t(its_buffer.size()));
                 }
@@ -794,7 +794,7 @@ void routing_manager_client::unsubscribe(client_t _client,
                 if (its_target) {
                     its_target->send(&its_buffer[0], uint32_t(its_buffer.size()));
                 } else {
-                    std::lock_guard<std::mutex> its_lock(sender_mutex_);
+                    std::lock_guard<std::mutex> its_lock_inner(sender_mutex_);
                     if (sender_) {
                         sender_->send(&its_buffer[0], uint32_t(its_buffer.size()));
                     }
@@ -1331,7 +1331,7 @@ void routing_manager_client::on_message(
                             << std::setw(4) << its_instance << "."
                             << std::setw(4) << its_eventgroup << ":"
                             << std::setw(4) << its_event << ":"
-                            << std::dec << (uint16_t)its_major << "] "
+                            << std::dec << +its_major << "] "
                             << std::boolalpha << (its_pending_id != PENDING_SUBSCRIPTION_ID)
                             << " "
                             << (_subscription_accepted ?
@@ -1434,7 +1434,7 @@ void routing_manager_client::on_message(
                         << std::setw(4) << its_instance << "."
                         << std::setw(4) << its_eventgroup << ":"
                         << std::setw(4) << its_event << ":"
-                        << std::dec << (uint16_t)its_major << "]";
+                        << std::dec << +its_major << "]";
                 }
             } else {
                 VSOMEIP_ERROR << __func__
@@ -1483,7 +1483,7 @@ void routing_manager_client::on_message(
                     << std::setw(4) << its_instance << "."
                     << std::setw(4) << its_eventgroup << "."
                     << std::setw(4) << its_event << "] "
-                    << (bool)(its_pending_id != PENDING_SUBSCRIPTION_ID) << " "
+                    << (its_pending_id != PENDING_SUBSCRIPTION_ID) << " "
                     << std::dec << its_remote_subscriber_count;
             } else
                 VSOMEIP_ERROR << __func__
@@ -1528,7 +1528,7 @@ void routing_manager_client::on_message(
                     << std::setw(4) << its_instance << "."
                     << std::setw(4) << its_eventgroup << "."
                     << std::setw(4) << its_event << "] "
-                    << (bool)(its_pending_id != PENDING_SUBSCRIPTION_ID) << " "
+                    << (its_pending_id != PENDING_SUBSCRIPTION_ID) << " "
                     << std::dec << its_remote_subscriber_count;
             } else
                 VSOMEIP_ERROR << __func__
@@ -1959,7 +1959,7 @@ void routing_manager_client::on_routing_info(
         std::forward_list<struct subscription_info> subscription_actions;
         if (pending_incoming_subscriptions_.size()) {
             {
-                std::lock_guard<std::mutex> its_lock(known_clients_mutex_);
+                std::lock_guard<std::mutex> its_lock_inner(known_clients_mutex_);
                 for (const auto &k : known_clients_) {
                     auto its_client = pending_incoming_subscriptions_.find(k.first);
                     if (its_client != pending_incoming_subscriptions_.end()) {
@@ -2259,7 +2259,7 @@ void routing_manager_client::send_pending_event_registrations(client_t _client) 
         for(; it!=pending_event_registrations_.end(); it++) {
             protocol::register_event reg(it->service_, it->instance_, it->notifier_, it->type_,
                                 it->is_provided_, it->reliability_, it->is_cyclic_
-                                , (uint16_t)it->eventgroups_.size(), it->eventgroups_);
+                                , uint16_t(it->eventgroups_.size()), it->eventgroups_);
             if(!its_command.add_registration(reg)) {break;}
         }
 
@@ -2293,7 +2293,7 @@ void routing_manager_client::send_register_event(client_t _client,
 
     protocol::register_event reg(_service, _instance, _notifier, _type,
                                 _is_provided, _reliability, _is_cyclic,
-                                (uint16_t)_eventgroups.size(), _eventgroups);
+                                uint16_t(_eventgroups.size()), _eventgroups);
 
     if(!its_command.add_registration(reg)) {
         VSOMEIP_ERROR << __func__ << ": register event command is too long.";
@@ -2387,10 +2387,10 @@ void routing_manager_client::cache_event_payload(
                 std::chrono::milliseconds::zero(), false, true,
                 nullptr,
                 false, false, true);
-        std::shared_ptr<event> its_event = find_event(its_service, its_instance, its_method);
-        if (its_event) {
-            its_event->prepare_update_payload(_message->get_payload(), true);
-            its_event->update_payload();
+        std::shared_ptr<event> its_event_inner = find_event(its_service, its_instance, its_method);
+        if (its_event_inner) {
+            its_event_inner->prepare_update_payload(_message->get_payload(), true);
+            its_event_inner->update_payload();
         }
     }
 }
@@ -2649,7 +2649,7 @@ void routing_manager_client::request_debounce_timeout_cbk(
                 requests_to_debounce_.clear();
             } else {
                 {
-                    std::lock_guard<std::mutex> its_lock(request_timer_mutex_);
+                    std::lock_guard<std::mutex> its_lock_inner(request_timer_mutex_);
                     request_debounce_timer_running_ = true;
                     request_debounce_timer_.expires_from_now(std::chrono::milliseconds(
                             configuration_->get_request_debouncing(host_->get_name())));
@@ -2664,7 +2664,7 @@ void routing_manager_client::request_debounce_timeout_cbk(
         }
     }
     {
-        std::lock_guard<std::mutex> its_lock(request_timer_mutex_);
+        std::lock_guard<std::mutex> its_lock_inner(request_timer_mutex_);
         request_debounce_timer_running_ = false;
     }
 }
@@ -2884,7 +2884,7 @@ void routing_manager_client::on_client_assign_ack(const client_t &_client) {
                 << " received another client identifier ("
                 << std::hex << _client
                 << "). Ignoring it. ("
-                << (int)state_ << ")";
+                << int(state_) << ")";
     }
 }
 

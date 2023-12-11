@@ -163,7 +163,7 @@ bool tcp_server_endpoint_impl::send_queued(const target_data_iterator_type _it) 
         } else {
             VSOMEIP_INFO << "Didn't find connection: "
                     << _it->first.address().to_string() << ":" << std::dec
-                    << static_cast<std::uint16_t>(_it->first.port())
+                    << +_it->first.port()
                     << " dropping outstanding messages (" << std::dec
                     << _it->second.queue_.size() << ").";
 
@@ -220,16 +220,16 @@ void tcp_server_endpoint_impl::get_configured_times_from_endpoint(
 
 bool tcp_server_endpoint_impl::is_established_to(const std::shared_ptr<endpoint_definition>& _endpoint) {
     bool is_connected = false;
-    endpoint_type endpoint(_endpoint->get_address(), _endpoint->get_port());
+    endpoint_type my_endpoint(_endpoint->get_address(), _endpoint->get_port());
     {
         std::lock_guard<std::mutex> its_lock(connections_mutex_);
-        auto connection_iterator = connections_.find(endpoint);
+        auto connection_iterator = connections_.find(my_endpoint);
         if (connection_iterator != connections_.end()) {
             is_connected = true;
         } else {
             VSOMEIP_INFO << "Didn't find TCP connection: Subscription "
-                    << "rejected for: " << endpoint.address().to_string() << ":"
-                    << std::dec << static_cast<std::uint16_t>(endpoint.port());
+                    << "rejected for: " << my_endpoint.address().to_string() << ":"
+                    << std::dec << +my_endpoint.port();
         }
     }
     return is_connected;

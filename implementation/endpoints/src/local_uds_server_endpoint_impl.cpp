@@ -120,7 +120,7 @@ void local_uds_server_endpoint_impl::start() {
                         io_);
 
         {
-            std::unique_lock<std::mutex> its_lock(new_connection->get_socket_lock());
+            std::unique_lock<std::mutex> its_lock_inner(new_connection->get_socket_lock());
             acceptor_.async_accept(
                 new_connection->get_socket(),
                 std::bind(
@@ -173,7 +173,7 @@ bool local_uds_server_endpoint_impl::send(const uint8_t *_data, uint32_t _size) 
 
     connection::ptr its_connection;
     {
-        std::lock_guard<std::mutex> its_lock(connections_mutex_);
+        std::lock_guard<std::mutex> its_lock_inner(connections_mutex_);
         const auto its_iterator = connections_.find(its_client);
         if (its_iterator == connections_.end()) {
             return false;
@@ -267,8 +267,8 @@ void local_uds_server_endpoint_impl::accept_cbk(
         auto its_ep = std::dynamic_pointer_cast<local_uds_server_endpoint_impl>(
                 shared_from_this());
         its_timer->async_wait([its_timer, its_ep]
-                               (const boost::system::error_code& _error) {
-            if (!_error) {
+                               (const boost::system::error_code& _error_inner) {
+            if (!_error_inner) {
                 its_ep->start();
             }
         });
@@ -743,7 +743,7 @@ void local_uds_server_endpoint_impl::connection::receive_cbk(
                         for (std::size_t i = its_iteration_gap;
                                 i < recv_buffer_size_ + its_iteration_gap &&
                                 i - its_iteration_gap < 32; i++) {
-                            local_msg << std::setw(2) << (int) recv_buffer_[i] << " ";
+                            local_msg << std::setw(2) << int(recv_buffer_[i]) << " ";
                         }
                         VSOMEIP_ERROR << "lse::c<" << this
                                 << ">rcb: recv_buffer_size is: " << std::dec
@@ -937,12 +937,12 @@ void local_uds_server_endpoint_impl::connection::handle_recv_buffer_exception(
             << std::setfill('0') << std::hex;
 
     for (std::size_t i = 0; i < recv_buffer_size_ && i < 16; i++) {
-        its_message << std::setw(2) << (int) (recv_buffer_[i]) << " ";
+        its_message << std::setw(2) << int(recv_buffer_[i]) << " ";
     }
 
     its_message << " Last 16 Bytes captured: ";
     for (int i = 15; recv_buffer_size_ > 15u && i >= 0; i--) {
-        its_message << std::setw(2) << (int) (recv_buffer_[static_cast<size_t>(i)]) << " ";
+        its_message << std::setw(2) << int(recv_buffer_[static_cast<size_t>(i)]) << " ";
     }
     VSOMEIP_ERROR << its_message.str();
     recv_buffer_.clear();
@@ -981,7 +981,7 @@ void local_uds_server_endpoint_impl::print_status() {
     std::lock_guard<std::mutex> its_lock(mutex_);
     connections_t its_connections;
     {
-        std::lock_guard<std::mutex> its_lock(connections_mutex_);
+        std::lock_guard<std::mutex> its_lock_inner(connections_mutex_);
         its_connections = connections_;
     }
 
