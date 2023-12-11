@@ -764,6 +764,21 @@ else()
   )
 endif()
 
+find_program(A2X_PATH a2x)
+if(NOT A2X_PATH)
+  message(WARNING "a2x is not installed. Readme can not be built as a pdf.")
+else()
+  add_custom_command(
+    TARGET doc
+    POST_BUILD
+    COMMAND
+      a2x -v --no-xmllint -a version=${VSOMEIP_VERSION} -f pdf -a tabsize=4 --dblatex-opts
+      '-P latex.output.revhistory=0 -P imagedata.default.scale=maxwidth=10cm,maxheight=8cm' -D
+      ${PROJECT_BINARY_DIR}/documentation ${PROJECT_SOURCE_DIR}/documentation/vsomeipUserGuide
+    BYPRODUCTS ${PROJECT_BINARY_DIR}/documentation/vsomeipUserGuide.pdf
+  )
+endif()
+
 # ######################################################################################################################
 # create pkg-config file
 if(NOT WIN32)
