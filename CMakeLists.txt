@@ -311,6 +311,21 @@ cmake_dependent_option(
   FALSE
 )
 
+cmake_dependent_option(
+  VSOMEIP_STATS_LOGGER
+  "Enable statistics logger"
+  FALSE
+  "${CMAKE_SYSTEM_NAME} MATCHES QNX"
+  FALSE
+)
+cmake_dependent_option(
+  VSOMEIP_STATS_LOGGER_USE_WHITE_LIST
+  "Enable connection name whitelist in stats logger"
+  FALSE
+  "${CMAKE_SYSTEM_NAME} MATCHES QNX"
+  FALSE
+)
+
 # cmake 3.15 introduced a new variable and a new format for the old one
 if(DEFINED Boost_VERSION_MACRO)
   set(VSOMEIP_BOOST_VERSION ${Boost_VERSION_MACRO})
@@ -458,6 +473,12 @@ else()
 endif()
 if(HAS_BUILDIN_CONFIG)
   target_compile_definitions(vsomeip3 PRIVATE VSOMEIP_BUILDIN_CONFIGURATION)
+endif()
+if(${VSOMEIP_STATS_LOGGER})
+  target_compile_definitions(vsomeip3-source PUBLIC STATS_LOGGER_ON)
+endif()
+if(${VSOMEIP_STATS_LOGGER_USE_WHITE_LIST})
+  target_compile_definitions(vsomeip3-source PUBLIC STATS_USE_WHITE_LIST)
 endif()
 target_include_directories(vsomeip3 SYSTEM PUBLIC $<BUILD_INTERFACE:${Boost_INCLUDE_DIRS}>)
 target_link_libraries(vsomeip3 PRIVATE STACKTRACE_INTERFACE)

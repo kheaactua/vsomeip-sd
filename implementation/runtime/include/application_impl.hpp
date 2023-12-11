@@ -34,6 +34,9 @@
 #include "../../configuration/include/internal.hpp"
 #endif // ANDROID
 #include "../../routing/include/routing_manager_host.hpp"
+#ifdef STATS_LOGGER_ON
+#include "../../utility/include/stats_logger.hpp"
+#endif
 
 namespace vsomeip_v3 {
 
@@ -497,6 +500,10 @@ private:
     vsomeip_sec_client_t sec_client_;
 
     bool has_session_handling_;
+
+#ifdef STATS_LOGGER_ON
+    std::unique_ptr<statsResourceManager> stats_;
+#endif //STATS_LOGGER_ON
 };
 
 } // namespace vsomeip_v3
