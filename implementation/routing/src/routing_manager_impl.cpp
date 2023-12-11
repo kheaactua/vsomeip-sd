@@ -585,12 +585,22 @@ void routing_manager_impl::stop_offer_service(client_t _client,
 void routing_manager_impl::request_service(client_t _client, service_t _service,
         instance_t _instance, major_version_t _major, minor_version_t _minor) {
 
+    std::stringstream ss_version;
+    if (ANY_MAJOR == _major)
+        ss_version << "any";
+    else
+        ss_version << std::dec << +_major;
+    ss_version << ".";
+    if (ANY_MINOR == _minor)
+        ss_version << "any";
+    else
+        ss_version << std::dec << +_minor;
     VSOMEIP_INFO << "REQUEST("
         << std::hex << std::setfill('0')
         << std::setw(4) << _client << "): ["
         << std::setw(4) << _service << "."
         << std::setw(4) << _instance << ":"
-        << std::dec << int(_major) << "." << _minor << "]";
+        << ss_version.str() << "]";
 
     routing_manager_base::request_service(_client,
             _service, _instance, _major, _minor);

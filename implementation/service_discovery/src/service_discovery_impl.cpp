@@ -1618,6 +1618,13 @@ service_discovery_impl::process_findservice_serviceentry(
                     if (its_info->get_endpoint(false) || its_info->get_endpoint(true)) {
                         send_uni_or_multicast_offerservice(its_info, _unicast_flag);
                     }
+                } else {
+                    VSOMEIP_WARNING << "Minor version incompatitibility for service "
+                        << std::hex << std::setw(4) << std::setfill('0') << _service << "."
+                        << std::hex << std::setw(4) << std::setfill('0') << _instance << ". "
+                        << " Offered version " << std::dec << static_cast<int>(its_info->get_major()) << "."
+                        << its_info->get_minor()
+                        << " requested version: " << std::dec << static_cast<int>(_major) << "." << _minor;
                 }
             }
         }
@@ -1632,6 +1639,13 @@ service_discovery_impl::process_findservice_serviceentry(
                     if (its_info->get_endpoint(false) || its_info->get_endpoint(true)) {
                         send_uni_or_multicast_offerservice(its_info, _unicast_flag);
                     }
+                } else {
+                    VSOMEIP_WARNING << "Minor version incompatitibility for service "
+                        << std::hex << std::setw(4) << std::setfill('0') << _service << "."
+                        << std::hex << std::setw(4) << std::setfill('0') << _instance << ". "
+                        << " Offered version " << std::dec << static_cast<int>(its_info->get_major()) << "."
+                        << its_info->get_minor()
+                        << " requested version: " << std::dec << static_cast<int>(_major) << "." << _minor;
                 }
             }
         }
