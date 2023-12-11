@@ -207,6 +207,17 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "QNX")
   add_link_options(-Wl,--wrap=socket,--wrap=accept,--wrap=open)
   target_link_libraries(OS_INTERFACE INTERFACE slog2 socket)
 
+  set(VSOMEIP_NETWORK_INT_READY_FILE
+      "/dev/shmem/network_int_ready"
+      CACHE PATH "Sentinel file to indicate the network interface is ready.  Used to delay SD"
+  )
+  set(VSOMEIP_WAIT_FOR_NETWORK_TIMEOUT_MS
+      10000
+      CACHE
+        STRING
+        "Timeout (ms) for waiting for the creation of the sentinel file set in VSOMEIP_NETWORK_INT_READY_FILE, must be larget than delay in SLM"
+  )
+
   find_program(OBJCOPY_BIN ntoaarch64-objcopy REQUIRED)
   set(OBJCOPY_ARGS
       --input-target

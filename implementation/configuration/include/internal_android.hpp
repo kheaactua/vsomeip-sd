@@ -40,6 +40,7 @@
 
 #define VSOMEIP_ROUTING_HOST_PORT_DEFAULT       31490
 
+
 #ifndef VSOMEIP_CFG_LIBRARY
 #define VSOMEIP_CFG_LIBRARY                     "libvsomeip_cfg.so"
 #endif
