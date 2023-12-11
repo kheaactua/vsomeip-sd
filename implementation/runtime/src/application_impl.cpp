@@ -495,9 +495,7 @@ void application_impl::start() {
                             << std::hex << std::setw(4) << std::setfill('0')
                             << client_ << " (" << name_ << ") is: " << std::hex
                             << std::this_thread::get_id()
-#if defined(__linux__) || defined(ANDROID)
-                            << " TID: " << std::dec << static_cast<int>(syscall(SYS_gettid))
-#endif
+                            << " TID: " << std::hash<std::thread::id>{}(std::this_thread::get_id())
                             ;
 #if defined(__linux__) || defined(ANDROID) || defined(__QNX__)
                         {
@@ -544,9 +542,7 @@ void application_impl::start() {
     VSOMEIP_INFO << "io thread id from application: "
             << std::hex << std::setw(4) << std::setfill('0') << client_ << " ("
             << name_ << ") is: " << std::this_thread::get_id()
-#if defined(__linux__) || defined(ANDROID)
-            << " TID: " << std::dec << static_cast<int>(syscall(SYS_gettid))
-#endif
+            << " TID: " << std::hash<std::thread::id>{}(std::this_thread::get_id())
     ;
 #if defined(__linux__) || defined(ANDROID) || defined(__QNX__)
     if ((VSOMEIP_IO_THREAD_NICE_LEVEL != io_thread_nice_level) && (io_thread_nice_level != nice(io_thread_nice_level))) {
