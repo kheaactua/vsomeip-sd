@@ -1,0 +1,22 @@
+# List of "owners" for this repository who are authorized to approve
+# and merge code changes.
+#
+# Key groups:
+#
+#  @PHOENIX/manifest-gatekeepers
+#    is delegated authority to release any component repo to QNX
+#
+#  @PHX-AOSP/manifest-gatekeepers
+#    is delegated authority to integrate any component repo to Android
+#
+
+# Every repo is requied to identify an owner, named in README.md, who is
+# delegated full authority to approve and merge changes
+#
+* @mruss100
+* @ekozlov
+
+# Some swim-lanes will identify several people who are delegated that
+# authority. For example:
+#
+* @PHOENIX/amf-reviewers
