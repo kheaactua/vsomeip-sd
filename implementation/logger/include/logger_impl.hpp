@@ -6,9 +6,13 @@
 #ifndef VSOMEIP_V3_LOGGER_CONFIGURATION_HPP_
 #define VSOMEIP_V3_LOGGER_CONFIGURATION_HPP_
 
+#include <chrono>
 #include <memory>
 #include <mutex>
 
+#ifdef __QNX__
+#include <sys/slog2.h>
+#endif
 #ifdef USE_DLT
 #ifndef ANDROID
 #include <dlt/dlt.h>
@@ -25,28 +29,44 @@ namespace logger {
 
 class logger_impl {
 public:
-    VSOMEIP_IMPORT_EXPORT static void init(const std::shared_ptr<configuration> &_configuration);
-    static std::shared_ptr<logger_impl> get();
+    VSOMEIP_IMPORT_EXPORT auto init(const std::shared_ptr<configuration> &_configuration) -> void;
+    static auto get() -> logger_impl&;
+
+    std::shared_ptr<configuration> get_configuration() const;
+
+    void log(level_e const _level, std::chrono::system_clock::time_point const when_, const char* _data);
+
+private:
+#ifdef USE_DLT
+    void enable_dlt(const std::string &_application, const std::string &_context);
+#endif
+    std::mutex mutex_;
 
     logger_impl() = default;
     ~logger_impl();
 
-    std::shared_ptr<configuration> get_configuration() const;
+    logger_impl(logger_impl const&) = delete;
+    auto operator=(logger_impl const&) -> logger_impl& = delete;
+
     void set_configuration(const std::shared_ptr<configuration> &_configuration);
-
-#ifdef USE_DLT
-    void log(level_e _level, const char *_data);
-
-private:
-    void enable_dlt(const std::string &_application, const std::string &_context);
-#endif
-
-private:
-    static std::mutex mutex__;
-
-    std::shared_ptr<configuration> configuration_;
     mutable std::mutex configuration_mutex_;
 
+    // Flag for whether init was called and processed (didn't immediately exit
+    // from a guard)
+    bool is_initialized_ = false;
+
+#ifdef __QNX__
+    // Flag whether slog2 was successfully initialized.
+    bool slog2_is_initialized_ = false;
+#endif
+    std::shared_ptr<configuration> configuration_;
+    static const char * levelAsString(level_e const _level);
+
+#ifdef __QNX__
+    static slog2_buffer_set_config_t   buffer_config;
+    static slog2_buffer_t              buffer_handle[1];
+    static std::uint8_t levelAsSlog2(level_e const _level);
+#endif
 #ifdef USE_DLT
 #ifndef ANDROID
     DLT_DECLARE_CONTEXT(dlt_)

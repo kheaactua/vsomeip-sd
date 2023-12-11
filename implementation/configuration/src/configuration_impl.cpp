@@ -117,6 +117,11 @@ configuration_impl::configuration_impl(const std::string &_path)
 #endif
       has_file_log_(false),
       has_dlt_log_(false),
+#ifdef __QNX__
+      has_slog2_log_(true),
+#else
+      has_slog2_log_(false),
+#endif
       logfile_("/tmp/vsomeip.log"),
       loglevel_(vsomeip_v3::logger::level_e::LL_INFO),
       is_sd_enabled_(VSOMEIP_SD_DEFAULT_ENABLED),
@@ -226,6 +231,7 @@ configuration_impl::configuration_impl(const configuration_impl &_other)
     has_logcat_log_ = _other.has_logcat_log_;
     has_file_log_ = _other.has_file_log_;
     has_dlt_log_ = _other.has_dlt_log_;
+    has_slog2_log_ = _other.has_slog2_log_;
     logfile_ = _other.logfile_;
 
     loglevel_ = _other.loglevel_;
@@ -378,7 +384,7 @@ bool configuration_impl::load(const std::string &_name) {
     std::vector<configuration_element> its_optional_elements;
 
     // Dummy initialization; maybe we'll find no logging configuration
-    logger::logger_impl::init(shared_from_this());
+    logger::logger_impl::get().init(shared_from_this());
 
     // Look for the standard configuration file
     read_data(its_input, its_mandatory_elements, its_failed, true);
@@ -623,7 +629,7 @@ bool configuration_impl::load_data(const std::vector<configuration_element> &_el
                 = load_logging(e, its_warnings) || is_logging_loaded_;
 
         if (is_logging_loaded_) {
-            logger::logger_impl::init(shared_from_this());
+            logger::logger_impl::get().init(shared_from_this());
             for (auto const& w : its_warnings)
                 VSOMEIP_WARNING << w;
         }
@@ -726,6 +732,15 @@ bool configuration_impl::load_logging(
                     std::string its_value(i->second.data());
                     has_dlt_log_ = (its_value == "true");
                     is_configured_[ET_LOGGING_DLT] = true;
+                }
+            } else if (its_key == "slog2") {
+                if (is_configured_[ET_LOGGING_SLOG2]) {
+                    _warnings.insert("Multiple definitions for logging.slog2."
+                            " Ignoring definition from " + _element.name_);
+                } else {
+                    std::string its_value(i->second.data());
+                    has_slog2_log_ = (its_value == "true");
+                    is_configured_[ET_LOGGING_SLOG2] = true;
                 }
             } else if (its_key == "level") {
                 if (is_configured_[ET_LOGGING_LEVEL]) {
@@ -2981,6 +2996,14 @@ bool configuration_impl::has_file_log() const {
 
 bool configuration_impl::has_dlt_log() const {
     return has_dlt_log_;
+}
+
+bool configuration_impl::has_slog2_log() const {
+    return has_slog2_log_;
+}
+
+bool configuration_impl::is_logging_loaded() const {
+    return is_logging_loaded_;
 }
 
 const std::string & configuration_impl::get_logfile() const {
