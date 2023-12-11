@@ -1,32 +1,53 @@
-libvsomeip_srcs = [
-   "implementation/endpoints/**/*.cpp",
-   "implementation/logger/**/*.cpp",
-   "implementation/tracing/**/*.cpp",
-   "implementation/message/**/*.cpp",
-   "implementation/routing/**/*.cpp",
-   "implementation/runtime/**/*.cpp",
-   "implementation/utility/**/*.cpp",
-   "implementation/plugin/**/*.cpp",
-   "implementation/protocol/**/*.cpp",
-   "implementation/security/**/*.cpp",
-]
+package {
+    default_visibility: ["//visibility:private"],
+}
 
-libvsomeip_compat_srcs = [
-    "implementation/compat/message/src/*.cpp",
-    "implementation/compat/runtime/src/*.cpp",
-]
+vsomeip_version = "3.4.10"
+boost_version = "108200"
 
-libvsomeip_cfg_srcs = [
-    "implementation/configuration/src/*.cpp",
-]
+filegroup {
+    name: "libvsomeip_srcs",
+    srcs: [
+        "implementation/endpoints/**/*.cpp",
+        "implementation/logger/**/*.cpp",
+        "implementation/tracing/**/*.cpp",
+        "implementation/message/**/*.cpp",
+        "implementation/routing/**/*.cpp",
+        "implementation/runtime/**/*.cpp",
+        "implementation/utility/**/*.cpp",
+        "implementation/plugin/**/*.cpp",
+        "implementation/protocol/**/*.cpp",
+        "implementation/security/**/*.cpp",
+    ],
+}
 
-libvsomeip_e2e_srcs = [
-    "implementation/e2e_protection/src/*.cpp",
-]
+filegroup {
+    name: "libvsomeip_cfg_srcs",
+    srcs: ["implementation/configuration/src/*.cpp"],
+}
 
-libvsomeip_sd_srcs = [
-    "implementation/service_discovery/src/*.cpp",
-]
+filegroup {
+    name: "libvsomeip_compat_srcs",
+    srcs: [
+        "implementation/compat/message/src/*.cpp",
+        "implementation/compat/runtime/src/*.cpp",
+    ],
+}
+
+filegroup {
+    name: "libvsomeip_e2e_srcs",
+    srcs: ["implementation/e2e_protection/src/*.cpp"],
+}
+
+filegroup {
+    name: "libvsomeip_sd_srcs",
+    srcs: ["implementation/service_discovery/src/*.cpp"],
+}
+
+filegroup {
+    name: "routingmanagerd_srcs",
+    srcs: ["examples/routingmanagerd/routingmanagerd.cpp"],
+}
 
 cc_defaults {
     name: "vsomeip_defaults",
@@ -46,143 +67,232 @@ cc_defaults {
         "-Wno-header-guard",
         "-Wno-overloaded-virtual",
         "-Wno-implicit-fallthrough",
+        "-Wno-deprecated-declarations",
+        "-DVSOMEIP_ENABLE_MULTIPLE_ROUTING_MANAGERS",
+        "-DVSOMEIP_DISABLE_SECURITY",
         "-Wno-error",
         "-Wno-shorten-64-to-32",
         "-D_GTHREAD_USE_MUTEX_INIT_FUNC",
         "-D_GTHREAD_USE_RECURSIVE_MUTEX_INIT_FUNC",
-    ]
+    ],
 }
 
 cc_defaults {
     name: "vsomeip_lib_defaults",
-
-    cflags: [
-        "-DVSOMEIP_BOOST_VERSION=107100",
-        "-DVSOMEIP_INTERNAL_SUPPRESS_DEPRECATED",
-    ],
+    defaults: ["vsomeip_defaults"],
 
     local_include_dirs: [
         "interface",
-        "implementation/helper"
-    ]
+
+        // Only required for boost <=1.66
+        // "implementation/helper",
+    ],
+    rtti: true,
+
+    cflags: [
+        "-DVSOMEIP_DEFAULT_CONFIGURATION_FOLDER=\"/system/etc/vsomeip/\"",
+        "-DVSOMEIP_DEFAULT_CONFIGURATION_FILE=\"\"",
+        "-DVSOMEIP_BASE_PATH=\"/data/system/ford/capi/run/\"",
+        "-DVSOMEIP_UNICAST_ADDRESS=\"10.7.0.10\"",
+        "-DVSOMEIP_NETMASK=\"255.255.0.0\"",
+        "-DAOSP_SYSTEM_PARTITION",
+        "-DVSOMEIP_BOOST_VERSION=" + boost_version,
+        "-DVSOMEIP_VERSION=\"" + vsomeip_version + "\"",
+        "-DVSOMEIP_INTERNAL_SUPPRESS_DEPRECATED",
+    ],
+    target: {
+        vendor: {
+            cflags: [
+                "-UVSOMEIP_DEFAULT_CONFIGURATION_FOLDER",
+                "-UVSOMEIP_DEFAULT_CONFIGURATION_FILE",
+                "-UVSOMEIP_BASE_PATH",
+                "-UVSOMEIP_UNICAST_ADDRESS",
+                "-UAOSP_SYSTEM_PARTITION",
+
+                "-DVSOMEIP_DEFAULT_CONFIGURATION_FOLDER=\"/vendor/etc/vsomeip/\"",
+                "-DVSOMEIP_DEFAULT_CONFIGURATION_FILE=\"\"",
+                "-DVSOMEIP_BASE_PATH=\"/data/vendor/ford/capi/run/\"",
+                "-DVSOMEIP_UNICAST_ADDRESS=\"10.6.0.10\"",
+                "-DVSOMEIP_NETMASK=\"255.255.0.0\"",
+            ],
+        },
+    },
 }
 
-cc_library_shared {
+cc_defaults {
+    name: "vendor_vsomeip_defaults",
+    defaults: ["vsomeip_defaults"],
+    vendor_available: true,
+}
+
+// TODO: write a genrule for internal.hpp.in -> internal.hpp
+// Note, there is an internal_android.hpp file
+
+// Consumers likely should use the `capi_app` cc_default in order to build a
+// CommonAPI app rather than directly link to `libvsomeip3
+cc_library {
     name: "libvsomeip3",
-    vendor: true,
-
-    srcs: libvsomeip_srcs,
-
+    visibility: ["//visibility:public"],
     defaults: [
-        "vsomeip_defaults",
-        "vsomeip_lib_defaults"
+        "vsomeip_lib_defaults",
+        "vendor_vsomeip_defaults",
     ],
+
+    srcs: [
+        ":libvsomeip_srcs",
+        // TODO only for VSOMEIP_ENABLE_MULTIPLE_ROUTING_MANAGERS
+        "implementation/configuration/src/configuration_impl.cpp",
+    ],
+
+    static: {
+        enabled: false,
+    },
 
     cflags: [
         "-DWITHOUT_SYSTEMD",
-        "-DVSOMEIP_VERSION=\"3.4.10\"",
-        "-DVSOMEIP_COMPAT_VERSION=\"3.4.10\"",
-        "-DVSOMEIP_BASE_PATH=\"/vendor/run/someip/\"",
-        "-DUSE_DLT",
+        "-DVSOMEIP_VERSION=\"" + vsomeip_version + "\"",
+        "-DVSOMEIP_COMPAT_VERSION=\"" + vsomeip_version + "\"",
+        // "-DUSE_DLT",
     ],
 
     ldflags: [
         "-Wl,-wrap,socket",
         "-Wl,-wrap,accept",
-        "-Wl,-wrap,open"
+        "-Wl,-wrap,open",
     ],
 
-    rtti: true,
-
-    export_include_dirs: [
-        "interface"
+    export_system_include_dirs: [
+        "interface",
     ],
+
+    shared: {
+        shared_libs: [
+            "libboost_system",
+            // "libboost_thread", // Required for security in policy_manager
+            "libboost_filesystem",
+            "liblog",
+            "libutils",
+        ],
+    },
+}
+
+// Do not build if VSOMEIP_ENABLE_MULTIPLE_ROUTING_MANAGERS is on
+// TODO Not sure of the best "Soong" way to make this conditional.  Soong config module and use `enabled`?
+cc_library {
+    name: "libvsomeip3-cfg",
+    stem: "libvsomeip_cfg",
+    visibility: ["//visibility:public"],
+    defaults: [
+        "vsomeip_lib_defaults",
+        "vendor_vsomeip_defaults",
+    ],
+
+    srcs: [":libvsomeip_cfg_srcs"],
+
+    static: {
+        enabled: false,
+    },
+
+    shared: {
+        shared_libs: [
+            "libvsomeip3",
+            "libboost_system",
+            "libboost_filesystem",
+            "liblog",
+        ],
+    },
+
+    // Because we use VSOMEIP_ENABLE_MULTIPLE_ROUTING_MANAGERS, no consumer
+    // should use this lib, however at the time of commit there exist some
+    // consumers of this lib so we cannot yet disable it
+    enabled: true,
+}
+
+cc_library {
+    name: "libvsomeip3-e2e",
+    stem: "libvsomeip_e2e",
+    visibility: ["//visibility:public"],
+    defaults: [
+        "vsomeip_lib_defaults",
+        "vendor_vsomeip_defaults",
+    ],
+    srcs: [":libvsomeip_e2e_srcs"],
+
+    static: {
+        enabled: false,
+    },
+
+    shared: {
+        shared_libs: [
+            "libvsomeip3",
+        ],
+    },
+}
+
+cc_library {
+    name: "libvsomeip3-sd",
+    stem: "libvsomeip_sd",
+    visibility: ["//visibility:public"],
+    defaults: [
+        "vsomeip_lib_defaults",
+        "vendor_vsomeip_defaults",
+    ],
+
+    srcs: [":libvsomeip_sd_srcs"],
+
+    static: {
+        enabled: false,
+    },
+
+    shared: {
+        shared_libs: [
+            "libvsomeip3",
+            "libboost_thread",
+        ],
+    },
+}
+
+cc_defaults {
+    name: "routingmanagerd",
+    defaults: [
+        "vsomeip_defaults",
+    ],
+    srcs: [":routingmanagerd_srcs"],
+
+    cflags: [
+        "-DROUTING_APPLICATION_NAME=\"com.ford.system.routingmanagerd\"",
+    ],
+
+    target: {
+        vendor: {
+            cflags: [
+                "-UROUTING_APPLICATION_NAME",
+                "-DROUTING_APPLICATION_NAME=\"com.ford.vendor.routingmanagerd\"",
+            ],
+        },
+
+    },
 
     shared_libs: [
-        "libboost_system",
+        "libvsomeip3",
+        "libvsomeip3-e2e",
+        "libvsomeip3-sd",
         "libboost_thread",
-        "libboost_filesystem",
         "liblog",
-        "libutils"
-    ]
+        "libutils",
+    ],
 }
 
-cc_library_shared {
-    name: "libvsomeip_cfg",
+cc_binary {
+    name: "com.ford.vendor.routingmanagerd",
+    defaults: ["routingmanagerd"],
     vendor: true,
-
-    srcs: libvsomeip_cfg_srcs,
-
-    defaults: [
-        "vsomeip_defaults",
-        "vsomeip_lib_defaults"
-    ],
-
-    rtti: true,
-
-    shared_libs: [
-        "libvsomeip3",
-        "libboost_system",
-        "libboost_filesystem"
-    ]
+    required: ["com.ford.vsomeip.config.vendor"],
 }
 
-cc_library_shared {
-    name: "libvsomeip_e2e",
-    vendor: true,
-
-    srcs: libvsomeip_e2e_srcs,
-
-    defaults: [
-        "vsomeip_defaults",
-        "vsomeip_lib_defaults"
-    ],
-
-    rtti: true,
-
-    shared_libs: [
-       "libvsomeip3"
-    ]
-}
-
-cc_library_shared {
-    name: "libvsomeip_sd",
-    vendor: true,
-
-    srcs: libvsomeip_sd_srcs,
-
-    defaults: [
-        "vsomeip_defaults",
-        "vsomeip_lib_defaults"
-    ],
-
-    rtti: true,
-
-    shared_libs: [
-        "libvsomeip3",
-        "libboost_system"
-    ]
-}
-
-cc_library_shared {
-    name: "libvsomeip",
-    vendor: true,
-
-    srcs: libvsomeip_compat_srcs,
-
-    defaults: [
-        "vsomeip_defaults",
-        "vsomeip_lib_defaults"
-    ],
-
-    rtti: true,
-
-    export_include_dirs: [
-        "interface"
-    ],
-
-    shared_libs: [
-        "libvsomeip3",
-        "libboost_system"
-    ]
+cc_binary {
+    name: "com.ford.system.routingmanagerd",
+    defaults: ["routingmanagerd"],
+    vendor: false,
+    required: ["com.ford.vsomeip.config.system"],
 }

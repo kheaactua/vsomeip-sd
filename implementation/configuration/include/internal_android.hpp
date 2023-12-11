@@ -6,10 +6,9 @@
 #ifndef VSOMEIP_V3_INTERNAL_HPP_
 #define VSOMEIP_V3_INTERNAL_HPP_
 
+#include <sys/types.h>
 #include <cstdint>
 #include <limits>
-#include <memory>
-
 #include <vsomeip/primitive_types.hpp>
 #include <vsomeip/structured_types.hpp>
 
@@ -21,35 +20,57 @@
 #define VSOMEIP_ENV_LOAD_PLUGINS                "VSOMEIP_LOAD_PLUGINS"
 #define VSOMEIP_ENV_CLIENTSIDELOGGING           "VSOMEIP_CLIENTSIDELOGGING"
 
+#ifndef VSOMEIP_DEFAULT_CONFIGURATION_FILE
 #define VSOMEIP_DEFAULT_CONFIGURATION_FILE      "/vendor/run/etc/vsomeip.json"
+#endif
+
 #define VSOMEIP_LOCAL_CONFIGURATION_FILE        "./vsomeip.json"
 #define VSOMEIP_MANDATORY_CONFIGURATION_FILES   "vsomeip_std.json,vsomeip_app.json,vsomeip_plc.json,vsomeip_log.json,vsomeip_security.json,vsomeip_whitelist.json,vsomeip_policy_extensions.json,vsomeip_portcfg.json"
 
+#ifndef VSOMEIP_DEFAULT_CONFIGURATION_FOLDER
 #define VSOMEIP_DEFAULT_CONFIGURATION_FOLDER    "/vendor/run/etc/vsomeip"
+#endif
 #define VSOMEIP_DEBUG_CONFIGURATION_FOLDER      "/var/opt/public/sin/vsomeip/"
 #define VSOMEIP_LOCAL_CONFIGURATION_FOLDER      "./vsomeip"
 
 // VSOMEIP_BASE_PATH should be specified in Android.bp or/and Android.mk file via c/c++ compiler flags.
+// #ifndef VSOMEIP_BASE_PATH
 // #define VSOMEIP_BASE_PATH                       "/storage/"
+// #endif
 
 #define VSOMEIP_ROUTING_HOST_PORT_DEFAULT       31490
 
-#define VSOMEIP_CFG_LIBRARY                     "libvsomeip_cfg.so"
+#ifndef VSOMEIP_CFG_LIBRARY
+#define VSOMEIP_CFG_LIBRARY                     "libvsomeip-cfg.so"
+#endif
 
-#define VSOMEIP_SD_LIBRARY                      "libvsomeip_sd.so"
+#ifndef VSOMEIP_SD_LIBRARY
+#define VSOMEIP_SD_LIBRARY                      "libvsomeip-sd.so"
+#endif
 
-#define VSOMEIP_E2E_LIBRARY                     "libvsomeip_e2e.so"
+#ifndef VSOMEIP_E2E_LIBRARY
+#define VSOMEIP_E2E_LIBRARY                     "libvsomeip-e2e.so"
+#endif
 
+#ifndef VSOMEIP_SEC_LIBRARY
 #define VSOMEIP_SEC_LIBRARY                     "libvsomeip-sec.so.1"
+#endif
 
+#ifndef VSOMEIP_ROUTING
 #define VSOMEIP_ROUTING                         "vsomeipd"
+#endif
 #define VSOMEIP_ROUTING_CLIENT                  0
 #define VSOMEIP_ROUTING_INFO_SIZE_INIT          256
 
 #define VSOMEIP_CLIENT_UNSET                    0xFFFF
 
+#ifndef VSOMEIP_UNICAST_ADDRESS
 #define VSOMEIP_UNICAST_ADDRESS                 "127.0.0.1"
-#define VSOMEIP_NETMASK                         "255.255.255.0"
+#endif
+
+#ifndef VSOMEIP_NETMASK
+#define VSOMEIP_NETMASK                         "255.255.0.0"
+#endif
 #define VSOMEIP_PREFIX                          24
 
 #define VSOMEIP_DEFAULT_CONNECT_TIMEOUT         100
@@ -90,6 +111,11 @@
 #define VSOMEIP_DEFAULT_MAX_REMOTE_SUBSCRIBERS  3
 
 #define VSOMEIP_MAX_WAIT_SENT                   5
+
+#define VSOMEIP_COMMAND_HEADER_SIZE             7
+
+#define VSOMEIP_COMMAND_TYPE_POS                0
+#define VSOMEIP_COMMAND_CLIENT_POS              1
 
 #define VSOMEIP_LOCAL_CLIENT_ENDPOINT_RECV_BUFFER_SIZE  19
 
@@ -137,8 +163,8 @@ const std::uint32_t QUEUE_SIZE_UNLIMITED = std::numeric_limits<std::uint32_t>::m
 
 const std::uint32_t MAX_RECONNECTS_UNLIMITED = std::numeric_limits<std::uint32_t>::max();
 
-const std::uint32_t ANY_UID = 0xFFFFFFFF;
-const std::uint32_t ANY_GID = 0xFFFFFFFF;
+inline constexpr uid_t ANY_UID = std::numeric_limits<uid_t>::max();
+inline constexpr gid_t ANY_GID = std::numeric_limits<uid_t>::max();
 
 enum class port_type_e {
     PT_OPTIONAL,
@@ -147,8 +173,8 @@ enum class port_type_e {
     PT_UNKNOWN
 };
 
-typedef uint8_t partition_id_t;
-const partition_id_t VSOMEIP_DEFAULT_PARTITION_ID = 0;
+using partition_id_t = std::uint8_t;
+inline constexpr partition_id_t VSOMEIP_DEFAULT_PARTITION_ID = 0;
 
 } // namespace vsomeip_v3
 
