@@ -50,6 +50,11 @@ tcp_server_endpoint_impl::tcp_server_endpoint_impl(
         VSOMEIP_ERROR << __func__
             << ": set reuse address option failed (" << ec.message() << ")";
 
+    acceptor_.set_option(boost::asio::socket_base::enable_connection_aborted(true), ec);
+    if (ec)
+        VSOMEIP_ERROR << __func__
+            << ": set enable connection aborted failed (" << ec.message() << ")";
+
 #if defined(__linux__) || defined(ANDROID) || defined(__QNX__)
     // If specified, bind to device
     std::string its_device(configuration_->get_device());
