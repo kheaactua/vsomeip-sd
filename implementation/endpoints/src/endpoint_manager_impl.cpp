@@ -41,6 +41,18 @@ endpoint_manager_impl::endpoint_manager_impl(
         is_processing_options_(true),
         options_thread_(std::bind(&endpoint_manager_impl::process_multicast_options, this)) {
 
+#if defined(__linux__) || defined(ANDROID) || defined(__QNX__)
+    {
+        std::stringstream s;
+        s << "emi_op_" << _configuration->get_routing_host_port();
+        auto err = pthread_setname_np(options_thread_.native_handle(),s.str().c_str());
+        if (err)
+        {
+            VSOMEIP_ERROR << "Failed to set endpoint thread name: " << strerror(err);
+        }
+    }
+#endif
+
     local_port_ = port_t(_configuration->get_routing_host_port() + 1);
     if (!is_local_routing_) {
         VSOMEIP_INFO << __func__ << ": Connecting to other clients from "
