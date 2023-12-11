@@ -106,7 +106,15 @@ In order that the vsomeip library is also included in the Android image, the lib
 ```
 PRODUCT_PACKAGES += \
     libvsomeip \
-    libvsomeip_cfg \
-    libvsomeip_sd \
-    libvsomeip_e2e \
+    libvsomeip_sd
 ```
+
+# Ford Modifications
+
+## Android Logging Properties
+
+The following properties have been added to override vsomeip's logging behaviour: `persist.{vendor|system}.amf.{capi|vsomeip}.log.{override,console,logcat,file,level}`.
+
+Specifically, once the `override` property is enabled (_e.g._ `setprop persist.vendor.amf.vsomeip.log.override true`), the other properties can then be set to override what is set in the vsomeip configuration file.  One additional upstream-breaking change is that the console log now logs to the console on Android rather than to logcat.  Logging to logcat is still implemented and enabled by default.  To modify this in the vsomeip configuration file use the `logcat` key.
+
+Client side logging can now be overridden using the `persist.{system,vendor}.amf.vsomeip.trace.services` property.  This will override the value of the environment variable `VSOMEIP_CLIENTSIDELOGGING`.  Recall that this is only examined at startup and thus any change to this property will only take effect when the vsomeip application in question is restarted.

@@ -7,6 +7,7 @@
 #include <thread>
 #include <iomanip>
 #include <iostream>
+#include <optional>
 
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -38,6 +39,19 @@
 #include "../../security/include/security.hpp"
 #include "../../tracing/include/connector_impl.hpp"
 #include "../../utility/include/utility.hpp"
+
+#ifdef ANDROID
+#include <android/log.h>
+#ifdef AOSP_SYSTEM_PARTITION
+#include <android/sysprop/PlatformLoggingProperties.sysprop.h>
+#else
+#include <android/sysprop/VendorLoggingProperties.sysprop.h>
+#endif
+#endif
+
+#ifdef ANDROID
+namespace props = ::ford::sysprop::amf::vsomeip;
+#endif
 
 namespace vsomeip_v3 {
 
@@ -207,8 +221,8 @@ bool application_impl::init() {
         VSOMEIP_INFO << "Security disabled!";
     }
 
-    const char *client_side_logging = getenv(VSOMEIP_ENV_CLIENTSIDELOGGING);
-    if (client_side_logging != nullptr) {
+    auto client_side_logging = clientSideLogging().value_or(nullptr);
+    if (client_side_logging) {
         client_side_logging_ = true;
         VSOMEIP_INFO << "Client side logging for application: " << name_
                 << " is enabled";
@@ -2969,6 +2983,21 @@ void application_impl::register_message_handler_ext(
     default:
         ;
     }
+}
+
+auto application_impl::clientSideLogging() const -> std::optional<const char*>
+{
+#ifdef ANDROID
+    {
+        auto client_side_logging = ::props::trace_services().value_or("");
+        if (!client_side_logging.empty()){
+            return client_side_logging.c_str();
+        }
+    }
+#endif
+
+    auto* client_side_logging = getenv(VSOMEIP_ENV_CLIENTSIDELOGGING);
+    return client_side_logging ? std::optional<const char*>(client_side_logging) : std::nullopt;
 }
 
 } // namespace vsomeip_v3

@@ -84,17 +84,17 @@ inline constexpr auto loglevel_enum_to_level(props::log_level_values level_name)
     using namespace props;
     using namespace vsomeip_v3::logger;
     auto const level
-        = (level_name == log_level_values::VERBOSE ?
+        = ((level_name == log_level_values::VERBOSE) || (level_name == log_level_values::V) ?
                 level_e::LL_VERBOSE :
-          (level_name == log_level_values::DEBUG ?
+          ((level_name == log_level_values::DEBUG) || (level_name == log_level_values::D) ?
                   level_e::LL_DEBUG :
-          (level_name == log_level_values::INFO ?
+          ((level_name == log_level_values::INFO) || (level_name == log_level_values::I) ?
                   level_e::LL_INFO :
-          (level_name == log_level_values::WARNING ?
+          ((level_name == log_level_values::WARNING) || (level_name == log_level_values::W) ?
                   level_e::LL_WARNING :
-          (level_name == log_level_values::ERROR ?
+          ((level_name == log_level_values::ERROR) || (level_name == log_level_values::E) ?
                   level_e::LL_ERROR :
-          (level_name == log_level_values::FATAL ?
+          ((level_name == log_level_values::FATAL) || (level_name == log_level_values::F) ?
                   level_e::LL_FATAL :
                   level_e::LL_INFO))))));
 
@@ -2943,7 +2943,6 @@ bool configuration_impl::is_v6() const {
 
 bool configuration_impl::has_console_log() const {
 #ifdef ANDROID
-    // Query properties for vsomeip property overrides
     if (::props::log_override().value_or(false))
     {
         return ::props::console_log().value_or(false);
@@ -2964,7 +2963,6 @@ bool configuration_impl::has_logcat_log() const {
 
 bool configuration_impl::has_file_log() const {
 #ifdef ANDROID
-    // Query properties for vsomeip property overrides
     if (::props::log_override().value_or(false))
     {
         return ::props::file_log().value_or(false);
@@ -2984,10 +2982,12 @@ const std::string & configuration_impl::get_logfile() const {
 vsomeip_v3::logger::level_e configuration_impl::get_loglevel() const {
     std::unique_lock<std::mutex> its_lock(mutex_loglevel_);
 #ifdef ANDROID
-    // Query properties for vsomeip property overrides
     if (::props::log_override().value_or(false))
     {
-        auto const level = ::props::log_level().value_or(props::log_level_values::INFO);
+        auto const level = ::props::log_level().value_or(props::log_level_values::UNSET);
+        if (props::log_level_values::UNSET == level) {
+            return loglevel_;
+        }
         auto const level_enum = loglevel_enum_to_level(level);
 
         return level_enum;

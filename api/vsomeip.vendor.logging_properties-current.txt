@@ -2,7 +2,7 @@ props {
   owner: Vendor
   module: "ford.sysprop.amf.vsomeip"
   prop {
-    api_name: "console"
+    api_name: "console_log"
     access: ReadWrite
     prop_name: "persist.vendor.amf.vsomeip.log.console"
   }
@@ -16,7 +16,7 @@ props {
     type: Enum
     access: ReadWrite
     prop_name: "persist.vendor.amf.vsomeip.log.level"
-    enum_values: "none|fatal|error|warning|info|debug|verbose"
+    enum_values: "none|fatal|F|error|E|warning|W|info|I|debug|D|verbose|V|unset"
   }
   prop {
     api_name: "log_override"
@@ -24,8 +24,14 @@ props {
     prop_name: "persist.vendor.amf.vsomeip.log.override"
   }
   prop {
-    api_name: "logcat"
+    api_name: "logcat_log"
     access: ReadWrite
     prop_name: "persist.vendor.amf.vsomeip.log.logcat"
+  }
+  prop {
+    api_name: "trace_services"
+    type: String
+    access: ReadWrite
+    prop_name: "persist.vendor.amf.vsomeip.trace.services"
   }
 }

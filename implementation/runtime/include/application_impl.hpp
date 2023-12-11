@@ -11,6 +11,7 @@
 #include <deque>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <set>
 #include <string>
 #include <thread>
@@ -343,6 +344,8 @@ private:
             const members_iterator_t &_it, instance_t _instance, method_t _method) const;
     void find_method_handlers(std::deque<message_handler_t> &,
             const members_instances_iterator_t &_it, method_t _method) const;
+
+    auto clientSideLogging() const -> std::optional<const char*>;
 
     //
     // Attributes

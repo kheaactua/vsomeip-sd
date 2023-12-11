@@ -2,7 +2,7 @@
 ## CONFIDENTIAL - FORD MOTOR COMPANY
 ##
 ## This is an unpublished work, which is a trade secret, created in
-## 2022. Ford Motor Company owns all rights to this work and intends
+## 2022-2023. Ford Motor Company owns all rights to this work and intends
 ## to maintain it in confidence to preserve its trade secret status.
 ## Ford Motor Company reserves the right to protect this work as an
 ## unpublished copyrighted work in the event of an inadvertent or
@@ -27,7 +27,7 @@ prop {
 prop {
     api_name: "log_level"
     type: Enum
-    enum_values: "none|fatal|error|warning|info|debug|verbose|unset"
+    enum_values: "none|fatal|F|error|E|warning|W|info|I|debug|D|verbose|V|unset"
     prop_name: "persist.vendor.amf.vsomeip.log.level"
     scope: Public
     access: Readonly
@@ -63,12 +63,4 @@ prop {
     prop_name: "persist.vendor.amf.vsomeip.trace.services"
     scope: Public
     access: Readonly
-}
-
-prop {
-    api_name: "console_log"
-    type: Boolean
-    prop_name: "persist.vendor.amf.vsomeip.log.console"
-    scope: Public
-    access: ReadWrite
 }
