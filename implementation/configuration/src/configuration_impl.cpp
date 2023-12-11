@@ -2571,6 +2571,14 @@ void configuration_impl::load_watchdog(const configuration_element &_element) {
                     its_converter >> watchdog_->missing_pongs_allowed_;
                     is_configured_[ET_WATCHDOG_ALLOWED_MISSING_PONGS] = true;
                 }
+            } else if (its_key == "dryrun") {
+                if (is_configured_[ET_WATCHDOG_DRYRUN]) {
+                    VSOMEIP_WARNING << "Multiple definitions of watchdog.dryrun."
+                            " Ignoring definition from " << _element.name_;
+                } else {
+                    watchdog_->is_dry_run_ = (its_value == "true");
+                    is_configured_[ET_WATCHDOG_DRYRUN] = true;
+                }
             }
         }
     } catch (...) {
@@ -3785,9 +3793,14 @@ uint32_t configuration_impl::get_watchdog_timeout() const {
     return watchdog_->timeout_in_ms_;
 }
 
+bool configuration_impl::is_watchdog_dryrun() const {
+    return watchdog_->is_dry_run_;
+}
+
 uint32_t configuration_impl::get_allowed_missing_pongs() const {
     return watchdog_->missing_pongs_allowed_;
 }
+
 std::uint32_t configuration_impl::get_permissions_uds() const {
     return permissions_uds_;
 }

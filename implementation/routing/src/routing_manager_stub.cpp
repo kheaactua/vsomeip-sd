@@ -1571,14 +1571,18 @@ void routing_manager_stub::check_watchdog() {
                     for (const auto& i : routing_info_) {
                         if (i.first > 0 && i.first != host_->get_client()) {
                             if (i.second.first > configuration_->get_allowed_missing_pongs()) {
-                                VSOMEIP_WARNING << "Lost contact to application " << std::hex << +i.first;
-                                lost.push_back(i.first);
+                                VSOMEIP_WARNING << "Watchdog lost contact to application " << std::hex << +i.first;
+                                if (!configuration_->is_watchdog_dryrun()) {
+                                    lost.push_back(i.first);
+                                }
                             }
                         }
                     }
                 }
-                for (auto i : lost) {
-                    host_->handle_client_error(i);
+                if (!configuration_->is_watchdog_dryrun()) {
+                    for (auto i : lost) {
+                        host_->handle_client_error(i);
+                    }
                 }
                 start_watchdog();
             };

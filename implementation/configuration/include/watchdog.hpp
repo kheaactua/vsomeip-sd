@@ -12,12 +12,14 @@ struct watchdog {
     watchdog()
         : is_enabeled_(false),
           timeout_in_ms_(VSOMEIP_DEFAULT_WATCHDOG_TIMEOUT),
-          missing_pongs_allowed_(VSOMEIP_DEFAULT_MAX_MISSING_PONGS) {
+          missing_pongs_allowed_(VSOMEIP_DEFAULT_MAX_MISSING_PONGS),
+          is_dry_run_(false) {
     }
 
     bool is_enabeled_;
     uint32_t timeout_in_ms_;
     uint32_t missing_pongs_allowed_;
+    bool is_dry_run_;
 };
 
 } // namespace cfg

@@ -202,6 +202,7 @@ public:
     VSOMEIP_EXPORT bool is_watchdog_enabled() const;
     VSOMEIP_EXPORT uint32_t get_watchdog_timeout() const;
     VSOMEIP_EXPORT uint32_t get_allowed_missing_pongs() const;
+    VSOMEIP_EXPORT bool is_watchdog_dryrun() const;
 
     VSOMEIP_EXPORT std::uint32_t get_permissions_uds() const;
 
@@ -580,6 +581,7 @@ protected:
         ET_WATCHDOG_ENABLE,
         ET_WATCHDOG_TIMEOUT,
         ET_WATCHDOG_ALLOWED_MISSING_PONGS,
+        ET_WATCHDOG_DRYRUN,
         ET_TRACING_ENABLE,
         ET_TRACING_SD_ENABLE,
         ET_SERVICE_DISCOVERY_OFFER_DEBOUNCE_TIME,
@@ -601,7 +603,7 @@ protected:
         ET_PARTITIONS,
         ET_SECURITY_AUDIT_MODE,
         ET_SECURITY_REMOTE_ACCESS,
-        ET_MAX = 46
+        ET_MAX = 47
     };
 
     bool is_configured_[ET_MAX];
