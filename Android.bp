@@ -70,6 +70,7 @@ cc_defaults {
         "-Wno-deprecated-declarations",
         "-DVSOMEIP_ENABLE_MULTIPLE_ROUTING_MANAGERS",
         "-DVSOMEIP_DISABLE_SECURITY",
+        "-DVSOMEIP_USE_MULTICAST_JOIN_INTERFACE_FILTER",
         "-Wno-error",
         "-Wno-shorten-64-to-32",
         "-D_GTHREAD_USE_MUTEX_INIT_FUNC",

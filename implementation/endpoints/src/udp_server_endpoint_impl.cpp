@@ -957,10 +957,42 @@ udp_server_endpoint_impl::set_multicast_option(
         {
             std::lock_guard<std::mutex> its_lock(local_mutex_);
             if (is_v4_) {
+#if VSOMEIP_USE_MULTICAST_JOIN_INTERFACE_FILTER
+                // Must tell the kernel to filter out undesired multicast
+                // messages from the group or when on a multi-homed network
+                // or group (eg: vendor/system on Android) then we will read
+                // duplicate packets.
+                //
+                // The boost asio join_group() fn will listen to all
+                // interfaces in the group which will result in duplicated
+                // messages in a multi-homed device
+                int zero = 0;
+                if ((::setsockopt(multicast_socket_->native_handle(), IPPROTO_IP, IP_MULTICAST_ALL, static_cast<void*>(&zero), sizeof(zero))) < 0) {
+                    VSOMEIP_ERROR << "udp_server_endpoint_impl:: Could not set IP_MULTICAST_ALL option";
+                }
+                VSOMEIP_DEBUG << __func__ << ": setting IP_MULTICAST_ALL to 0";
+                struct ip_mreqn req{{0},{0},0};
+                req.imr_multiaddr.s_addr = ::inet_addr(_address.to_string().c_str());
+                req.imr_address.s_addr = ::inet_addr(configuration_->get_unicast_address().to_string().c_str());
+                struct ifreq ifr{};
+                std::memset(&ifr, '\0', sizeof(ifr));
+                std::strncpy(ifr.ifr_name, configuration_->get_device().c_str(), sizeof(ifr.ifr_name));
+                if (::ioctl(multicast_socket_->native_handle(), SIOCGIFINDEX, &ifr) != 0) {
+                    VSOMEIP_ERROR <<  "ioctl(SIOCGIFINDEX): " << ::strerror(errno);
+                }
+                req.imr_ifindex = ifr.ifr_ifindex;
 
+                VSOMEIP_DEBUG << "udp_server_endpoint_impl::" <<  __func__ << " Addr [" << _address << "] idx [" <<
+                    req.imr_ifindex << "] iface[" << configuration_->get_unicast_address().to_string() << "]";
+                auto const rc = ::setsockopt(multicast_socket_->native_handle(), IPPROTO_IP, IP_ADD_MEMBERSHIP, static_cast<void*>(&req), sizeof(req));
+                if (rc < 0) {
+                    VSOMEIP_ERROR << "udp_server_endpoint_impl:: Could not join mcast group via IP_ADD_MEMBERSHIP. Err =[" << rc << "] str [" << ::strerror(errno) << "]";
+                }
+#else
                 its_join_option = boost::asio::ip::multicast::join_group(
                         _address.to_v4(),
                         local_.address().to_v4());
+#endif // VSOMEIP_USE_MULTICAST_JOIN_INTERFACE_FILTER
             } else {
                 its_join_option = boost::asio::ip::multicast::join_group(
                         _address.to_v6(),
