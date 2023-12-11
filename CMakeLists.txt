@@ -95,6 +95,8 @@ if(NOT CMAKE_BUILD_TYPE)
   )
 endif()
 
+set(CMAKE_CXX_STANDARD 17)
+
 # OS
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   set(DL_LIBRARY "dl")
@@ -293,7 +295,7 @@ if(MSVC)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "QNX")
   set(USE_RT "")
 else()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OS_CXX_FLAGS} -g ${OPTIMIZE} -std=c++14 ${NO_DEPRECATED} ${EXPORTSYMBOLS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OS_CXX_FLAGS} -g ${OPTIMIZE} -std=c++17 ${NO_DEPRECATED} ${EXPORTSYMBOLS}")
   set(USE_RT "rt")
 endif()
 

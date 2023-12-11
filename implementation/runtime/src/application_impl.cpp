@@ -426,7 +426,7 @@ void application_impl::start() {
             std::lock_guard<std::mutex> its_lock(dispatcher_mutex_);
             is_dispatching_ = true;
             auto its_main_dispatcher = std::make_shared<std::thread>(
-                    std::bind(&application_impl::main_dispatch, shared_from_this()));
+                    &application_impl::main_dispatch, shared_from_this());
             dispatchers_[its_main_dispatcher->get_id()] = its_main_dispatcher;
         }
 

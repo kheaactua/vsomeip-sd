@@ -229,8 +229,7 @@ configuration_impl::configuration_impl(const configuration_impl &_other)
     is_remote_access_allowed_ = _other.is_remote_access_allowed_.load();
 }
 
-configuration_impl::~configuration_impl() {
-}
+configuration_impl::~configuration_impl() = default;
 
 bool configuration_impl::load(const std::string &_name) {
     std::lock_guard<std::mutex> its_lock(mutex_);
@@ -3264,7 +3263,7 @@ void configuration_impl::trim(std::string &_s) {
             _s.rbegin(),
             _s.rend(),
             [](unsigned char ch) { return !std::isspace(ch); }).base(),
-            _s.end()
+        _s.end()
     );
 }
 

@@ -154,14 +154,14 @@ typedef enum {
     IS_SUBSCRIBING
 } subscription_state_e;
 
-const std::uint32_t MESSAGE_SIZE_UNLIMITED = std::numeric_limits<std::uint32_t>::max();
+inline constexpr std::uint32_t MESSAGE_SIZE_UNLIMITED = std::numeric_limits<std::uint32_t>::max();
 
-const std::uint32_t QUEUE_SIZE_UNLIMITED = std::numeric_limits<std::uint32_t>::max();
+inline constexpr std::uint32_t QUEUE_SIZE_UNLIMITED = std::numeric_limits<std::uint32_t>::max();
 
 #define VSOMEIP_DEFAULT_NPDU_DEBOUNCING_NANO         2 * 1000 * 1000
 #define VSOMEIP_DEFAULT_NPDU_MAXIMUM_RETENTION_NANO  5 * 1000 * 1000
 
-const std::uint32_t MAX_RECONNECTS_UNLIMITED = std::numeric_limits<std::uint32_t>::max();
+inline constexpr std::uint32_t MAX_RECONNECTS_UNLIMITED = std::numeric_limits<std::uint32_t>::max();
 
 inline constexpr uid_t ANY_UID = std::numeric_limits<uid_t>::max();
 inline constexpr gid_t ANY_GID = std::numeric_limits<uid_t>::max();
