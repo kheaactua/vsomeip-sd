@@ -247,7 +247,7 @@ void service_discovery_impl::do_start_sd(std::function<void(void)> on_complete, 
     start_ttl_timer();
 
     on_complete();
-};
+}
 
 void
 service_discovery_impl::start(std::function<void(void)> on_routing_started) {
