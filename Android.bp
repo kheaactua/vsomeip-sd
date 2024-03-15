@@ -294,6 +294,11 @@ cc_defaults {
 
     cflags: [
         "-DROUTING_APPLICATION_NAME=\"com.ford.system.routingmanagerd\"",
+        // NetworkIDs for system/vendor are set by the script
+        // device/ford/belford/oem_eth_setup.sh
+        //
+        // second virtio network for vSOMEIP /system communication has netd ID 12
+        "-DTARGET_NETID=12",
     ],
 
     target: {
@@ -301,6 +306,9 @@ cc_defaults {
             cflags: [
                 "-UROUTING_APPLICATION_NAME",
                 "-DROUTING_APPLICATION_NAME=\"com.ford.vendor.routingmanagerd\"",
+                "-UTARGET_NETID",
+                // third virtio network for vSOMEIP /vendor communication has netd ID 13
+                "-DTARGET_NETID=13",
             ],
         },
 
@@ -313,6 +321,7 @@ cc_defaults {
         "libboost_thread",
         "liblog",
         "libutils",
+        "libandroid_net",
     ],
 }
 

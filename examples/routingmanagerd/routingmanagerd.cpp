@@ -15,6 +15,10 @@
 #include <vsomeip/vsomeip.hpp>
 #include <vsomeip/internal/logger.hpp>
 
+#ifdef ANDROID
+#include <android/multinetwork.h>
+#endif // ANDROID
+
 #ifdef USE_DLT
 #ifndef ANDROID
 #include <dlt/dlt.h>
@@ -63,6 +67,31 @@ void routingmanagerd_stop(int _signal) {
     sighandler_condition.notify_one();
 }
 #endif
+
+
+#ifdef ANDROID
+// This value MUST be kept in sync with the corresponding value in
+// the android.net.Network#getNetworkHandle() implementation.
+static constexpr uint32_t kHandleMagic = 0xcafed00d;
+static constexpr uint32_t kHandleMagicSize = 32;
+
+static auto gethandlefromnetid(unsigned netid) -> net_handle_t {
+    if (netid == 0) {
+        return NETWORK_UNSPECIFIED;
+    }
+    return (((net_handle_t) netid) << kHandleMagicSize) | kHandleMagic;
+}
+
+static auto attach_to_android_network(unsigned netid) -> bool {
+    net_handle_t network = gethandlefromnetid(netid);
+    auto const rc = android_setprocnetwork(network);
+
+    VSOMEIP_INFO << "android_setprocnetwork(" << netid << ") rc = " << rc
+        << " errno=" << errno;
+    return rc == 0;
+}
+#endif // ANDROID
+
 
 /*
  * Create a vsomeip application object and start it.
@@ -120,6 +149,23 @@ int routingmanagerd_process(bool _is_quiet) {
         }
     });
 #endif
+#ifdef ANDROID
+#ifndef TARGET_NETID
+#error Unknown Android net target
+#endif
+    // On the Ford system tell Android netd that we want this process
+    // to be fwmark attached to the requested network.  Even though later
+    // in the socket code we will use the UNIX setsockopt(..SO_BINDTODEVICE,)
+    // but that seems to have an issue with UDP transmissions not going from
+    // the /system partition routingmanagerd to QNX when the Android permissions
+    // are applied on oem1 interface.  By telling netd here that we are
+    // wanting to talk on the network that solves this issue.
+    auto const attachResult = attach_to_android_network(TARGET_NETID);
+    if (!attachResult) {
+        VSOMEIP_ERROR << "FAILED to attach to android network : " << TARGET_NETID;
+        // keep going
+    }
+#endif // ANDROID
     if (its_application->init()) {
         if (its_application->is_routing()) {
             its_application->start();
