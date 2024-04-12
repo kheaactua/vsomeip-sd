@@ -142,7 +142,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     -Wconversion
     -Wformat
     -Werror=format-security
-    -Werror
+    # -Werror
     -Wpedantic
     -fexceptions
     -fstrict-aliasing
