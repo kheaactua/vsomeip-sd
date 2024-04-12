@@ -14,6 +14,7 @@
 //
 
 #ifdef STATS_LOGGER_ON
+
 #ifndef STATSLOGGER_HPP
 #define STATSLOGGER_HPP
 
@@ -207,6 +208,11 @@ public:
             static_cast<unsigned>(ceil(upper_limit_ / bucket_size_))},
         overflow_bucket_{number_of_buckets_} {}
 
+  statsLogger(statsLogger const &) = delete;
+  statsLogger(statsLogger &&) = delete;
+  auto operator=(statsLogger const &) = delete;
+  auto operator=(statsLogger &&) = delete;
+
   bool isLogging() { return loggingStatus_; }
 
   friend class statsResourceManager;
@@ -243,10 +249,12 @@ private:
   std::unique_ptr<histogram_t> histogram_;
   std::string histogram_axis_;
 
-  unsigned const upper_limit_;
-  unsigned const bucket_size_;
-  size_t const number_of_buckets_;
-  size_t const overflow_bucket_;
+  WatchpointCounter watchpointCounter_;
+
+  size_t const upper_limit_ = 0;
+  size_t const bucket_size_ = 0;
+  size_t const number_of_buckets_ = 0;
+  size_t const overflow_bucket_ = 0;
 
   std::string toString();
 
@@ -256,29 +264,23 @@ private:
   void events_above_threshold_snapshot();
 };
 
+#ifndef __QNX__
+using dispatch_t = void *;
+#endif
+
 class statsResourceManager {
 public:
-  static std::unique_ptr<statsResourceManager>
-  init(const std::string &_appName);
-  statsResourceManager()
-      : pLogger_{nullptr}, appName_{"unknown_app"}, devRoot_{"/dev/vsomeip/"} {}
-  statsResourceManager(const statsResourceManager &) = delete;
-  statsResourceManager(const statsResourceManager &&) = delete;
-  statsResourceManager &operator=(const statsResourceManager &) = delete;
-  ~statsResourceManager() = default;
+  static auto getInstance() -> statsResourceManager &;
 
   void log(const handler_stat &h_stat) { pLogger_->log(h_stat); }
+  void start(std::string app_name, size_t _storageSize = 60000,
+             std::chrono::milliseconds _durationThreshold =
+                 std::chrono::milliseconds(4));
+
+  std::atomic<bool> running_ = false;
+  std::mutex running_mutex_;
 
 private:
-  void start(const std::string &_appName, size_t _storageSize,
-             size_t _durationThreshol_MS);
-  void runResourceManagerThread(std::string initDpEnableVal,
-                                std::string initDpStorageSizeVal,
-                                std::string initDpHandlerDurationThresholdVal);
-  void init(dispatch_t *pDispatch, const std::string &formattedInitDpEnableVal,
-            const std::string &formattedInitDpStorageSizeVal,
-            const std::string &formattedInitDpHandlerDurationThresholdVal);
-
 #ifdef __QNX__
   resmgr_connect_funcs_t connectFuncs_;
   resmgr_io_funcs_t ioFuncs_;
@@ -297,6 +299,21 @@ private:
 
   std::string appName_ = "unknown_app";
   std::filesystem::path devRoot_ = "/dev/vsomeip/";
+
+  statsResourceManager() : pLogger_{std::make_shared<statsLogger>()} {};
+  ~statsResourceManager() = default;
+
+  statsResourceManager(statsLogger const &) = delete;
+  statsResourceManager(statsLogger &&) = delete;
+  auto operator=(statsResourceManager const &) = delete;
+  auto operator=(statsResourceManager &&) = delete;
+
+  void runResourceManagerThread(std::string initDpEnableVal,
+                                std::string initDpStorageSizeVal,
+                                std::string initDpHandlerDurationThresholdVal);
+  void init(dispatch_t *pDispatch, const std::string &formattedInitDpEnableVal,
+            const std::string &formattedInitDpStorageSizeVal,
+            const std::string &formattedInitDpHandlerDurationThresholdVal);
 };
 
 } // namespace vsomeip_v3

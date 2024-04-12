@@ -112,16 +112,12 @@ application_impl::application_impl(const std::string &_name, const std::string &
           watchdog_timer_(io_),
           client_side_logging_(false),
           has_session_handling_(true)
-#ifdef STATS_LOGGER_ON
-          ,stats_{nullptr}
-#endif // STATS_LOGGER_ON
 {
 #ifdef STATS_LOGGER_ON
     try {
-        stats_ = statsResourceManager::init(name_);
+        statsResourceManager::getInstance().start(name_);
     } catch (std::exception const& e) {
         VSOMEIP_ERROR << "[vsomeip_stats]: statsResourceManager::init(): " << e.what();
-        stats_.reset(nullptr);
     }
 #endif
 }
@@ -2073,13 +2069,11 @@ void application_impl::invoke_handler(std::shared_ptr<sync_handler> &_handler) {
 #endif
             _handler->handler_();
 #ifdef STATS_LOGGER_ON
-            if (stats_) {
-                auto const duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time);
+            auto const duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time);
 
-                handler_stat h_stat{client_, its_sync_handler->service_id_, its_sync_handler->instance_id_, its_sync_handler->method_id_,
+            handler_stat h_stat{client_, its_sync_handler->service_id_, its_sync_handler->instance_id_, its_sync_handler->method_id_,
                                 static_cast<std::uint8_t>(its_sync_handler->handler_type_), duration, system_time};
-                stats_->log(std::move(h_stat));
-            }
+            statsResourceManager::getInstance().log(std::move(h_stat));
 #endif
 
         } catch (const std::exception &e) {

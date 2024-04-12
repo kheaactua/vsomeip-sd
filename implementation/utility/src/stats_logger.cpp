@@ -23,7 +23,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <fstream>
 #include <thread>
 
 #ifdef ANDROID
@@ -32,8 +31,9 @@
 #include "internal.hpp"
 #endif // ANDROID
 
-#include "../include/stats_logger.hpp"
 #include <vsomeip/internal/logger.hpp>
+
+#include "../include/stats_logger.hpp"
 
 extern char *__progname;
 
@@ -125,14 +125,10 @@ static constexpr std::array<std::string_view, 83> apps_white_list = {
     "RCN_DiagnosticsAgent",
     "max-defrost-qnx-service"};
 
-bool is_appl_enabled_at_boot(const std::string &name) {
+bool is_appl_enabled_at_boot(std::string const& name) {
   auto it =
       std::find(std::begin(apps_white_list), std::end(apps_white_list), name);
-  if (it == std::end(apps_white_list)) {
-    return false;
-  } else {
-    return true;
-  }
+  return it != std::end(apps_white_list);
 }
 #endif // STATS_USE_WHITE_LIST
 
@@ -256,7 +252,7 @@ void Histogram::set(const std::string v) {
 #endif
 }
 
-void Event::set(const std::string v) {
+void Event::set(const std::string /* v */) {
 #ifdef __QNX__
   // Update nbytes, consumed by io_read
   devAttr_.attr.nbytes = static_cast<long>(formattedPropVal_.size());
@@ -388,24 +384,28 @@ void statsLogger::log(const handler_stat &h_stat) {
   }
 }
 
-void statsResourceManager::start(const std::string &_appName,
-                                 size_t _storageSize,
+auto statsResourceManager::getInstance() -> statsResourceManager & {
+  static statsResourceManager instance;
+  return instance;
+}
+
+void statsResourceManager::start(std::string app_name, size_t _storageSize,
                                  std::chrono::milliseconds _durationThreshold) {
-  appName_ = _appName;
-  VSOMEIP_INFO << "[vsomeip_stats]: start() " << __progname << " : "
+  std::lock_guard lock(running_mutex_);
+  if (running_) {
+    VSOMEIP_WARNING << "[vsomeip_stats]: " << __func__ << ": " << __progname
+                    << " : is already running";
+    return;
+  }
+  running_ = true;
+  appName_ = app_name;
+
+  VSOMEIP_INFO << "[vsomeip_stats]: " << __func__ << ": " << __progname << " : "
                << appName_;
 
-  pLogger_ = std::make_shared<statsLogger>();
-
-#ifdef STATS_USE_WHITE_LIST
-  bool _enableStats = false;
-  if (is_appl_enabled_at_boot(appName_)) {
-    _enableStats = true;
-  } else {
-    _enableStats = false;
-  }
-#else
   bool _enableStats = true;
+#ifdef STATS_USE_WHITE_LIST
+  _enableStats = is_appl_enabled_at_boot(appName_);
 #endif // STATS_USE_WHITE_LIST
 
   auto *env_enable_logging = getenv(VSOMEIP_ENV_ENABLE_LOGGING);
@@ -551,7 +551,7 @@ void statsResourceManager::runResourceManagerThread(
 #ifdef __QNX__
   dispatch_context_t *pDispatchContext = dispatch_context_alloc(pDispatch);
 
-  while (1) {
+  while (running_) {
     if ((pDispatchContext = dispatch_block(pDispatchContext)) == nullptr) {
       VSOMEIP_ERROR << "[vsomeip_stats]: nullptr dispatch block: "
                     << std::strerror(errno);
