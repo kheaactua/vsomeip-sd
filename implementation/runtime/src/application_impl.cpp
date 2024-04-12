@@ -95,7 +95,7 @@ application_impl::application_impl(const std::string &_name, const std::string &
 #else
           work_(std::make_shared<boost::asio::io_context::work>(io_)),
 #endif
-          routing_(0),
+          routing_(nullptr),
           state_(state_type_e::ST_DEREGISTERED),
           security_mode_(security_mode_e::SM_ON),
 #ifdef VSOMEIP_ENABLE_SIGNAL_HANDLING
@@ -2074,10 +2074,10 @@ void application_impl::invoke_handler(std::shared_ptr<sync_handler> &_handler) {
             _handler->handler_();
 #ifdef STATS_LOGGER_ON
             if (stats_) {
-                auto const duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time).count();
+                auto const duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time);
 
                 handler_stat h_stat{client_, its_sync_handler->service_id_, its_sync_handler->instance_id_, its_sync_handler->method_id_,
-                                    static_cast<std::uint32_t>(its_sync_handler->handler_type_), duration_ms, system_time.time_since_epoch().count()};
+                                static_cast<std::uint8_t>(its_sync_handler->handler_type_), duration, system_time};
                 stats_->log(std::move(h_stat));
             }
 #endif

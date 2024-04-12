@@ -21,40 +21,47 @@
 #include <sys/iofunc.h>
 
 #include <atomic>
+#include <filesystem>
 #include <mutex>
 #include <string>
 #include <vector>
 
 #include <boost/circular_buffer.hpp>
 
+#include <vsomeip/constants.hpp>
+#include <vsomeip/primitive_types.hpp>
+
 namespace vsomeip_v3 {
 
 struct handler_stat {
-  handler_stat()
-      : client{0}, service_id{0}, instance_id{0}, method_id{0}, handler_type{0},
-        duration_ms{0}, time_stamp(0) {}
+  /** The real handler type is the private application_impl::handler_type_e */
+  using handler_type_t = uint8_t;
 
-  handler_stat(std::uint32_t _client, std::uint32_t _service_id,
-               std::uint32_t _instance_id, std::uint32_t _method_id,
-               std::uint32_t _handler_type, long long int _duration_ms,
-               long long int _time_stamp)
+  handler_stat() = default;
+
+  handler_stat(client_t _client, service_t _service_id, instance_t _instance_id,
+               method_t _method_id, handler_type_t _handler_type,
+               std::chrono::milliseconds _duration,
+               std::chrono::system_clock::time_point _time_stamp)
       : client{_client}, service_id{_service_id}, instance_id{_instance_id},
-        method_id{_method_id}, handler_type{_handler_type},
-        duration_ms{_duration_ms}, time_stamp(_time_stamp) {}
+        method_id{_method_id}, handler_type{_handler_type}, duration{_duration},
+        time_stamp(_time_stamp) {}
   std::string toString();
   static std::string bannerString();
 
-  std::uint32_t client;
-  std::uint32_t service_id;
-  std::uint32_t instance_id;
-  std::uint32_t method_id;
-  std::uint32_t handler_type;
-  long long int duration_ms;
-  long long int time_stamp;
+  client_t client = ANY_CLIENT;
+  service_t service_id = ANY_SERVICE;
+  instance_t instance_id = ANY_INSTANCE;
+  method_t method_id = ANY_METHOD;
+  handler_type_t handler_type = 0;
+
+  std::chrono::milliseconds duration = std::chrono::milliseconds(0);
+  std::chrono::system_clock::time_point time_stamp =
+      std::chrono::system_clock::time_point::min();
 };
 
-typedef boost::circular_buffer<handler_stat> c_buffer;
-typedef std::vector<unsigned long> histogram_t;
+using c_buffer = boost::circular_buffer<handler_stat>;
+using histogram_t = std::vector<unsigned long>;
 
 class statsLogger;
 class DeviceProperty;
@@ -67,10 +74,11 @@ struct DeviceAttribute {
 
 class DeviceProperty {
 public:
-  DeviceProperty() : pLogger_{nullptr} {}
+  DeviceProperty() = default;
   DeviceProperty(const DeviceProperty &) = delete;
   DeviceProperty(const DeviceProperty &&) = delete;
-  DeviceProperty &operator=(const DeviceProperty &) = delete;
+  auto operator=(const DeviceProperty &) -> DeviceProperty & = delete;
+  auto operator=(DeviceProperty &&) -> DeviceProperty & = delete;
   virtual ~DeviceProperty() = default;
 
   void initialize(long, DeviceProperty *, std::shared_ptr<statsLogger>);
@@ -81,15 +89,17 @@ public:
 
   // Returns pointer to formatted property val (propVal + '\n) to be used by
   // io_read, value persists
-  const char *getValPtr() const { return formattedPropVal_.c_str(); }
+  [[nodiscard]] auto getValPtr() const -> const char * {
+    return formattedPropVal_.c_str();
+  }
 
   // Returns property value without '\n', used to get "real" value of property,
   // value does not persist
-  std::string getVal() const {
-    return formattedPropVal_.substr(0, formattedPropVal_.find("\n"));
+  [[nodiscard]] auto getVal() const -> std::string {
+    return formattedPropVal_.substr(0, formattedPropVal_.find('\n'));
   }
 
-  DeviceAttribute *getDevAttrPtr() { return &devAttr_; }
+  auto getDevAttrPtr() -> DeviceAttribute * { return &devAttr_; }
 
 protected:
   std::string formattedPropVal_; // defined as [ propVal + '\n' (nbytes) ]
@@ -99,60 +109,65 @@ protected:
 
 class DpEnable : public DeviceProperty {
 public:
-  DpEnable() {}
+  DpEnable() = default;
   DpEnable(const DpEnable &) = delete;
   DpEnable(const DpEnable &&) = delete;
-  DpEnable &operator=(const DpEnable &) = delete;
+  auto operator=(DpEnable const &) -> DpEnable & = delete;
+  auto operator=(DpEnable &&) -> DpEnable & = delete;
   ~DpEnable() = default;
 
-  void set(std::string);
+  void set(std::string) override;
 };
 
 class DpStorageSize : public DeviceProperty {
 public:
-  DpStorageSize() {}
+  DpStorageSize() = default;
   DpStorageSize(const DpStorageSize &) = delete;
   DpStorageSize(const DpStorageSize &&) = delete;
-  DpStorageSize &operator=(const DpStorageSize &) = delete;
+  auto operator=(DpStorageSize const &) -> DpStorageSize & = delete;
+  auto operator=(DpStorageSize &&) -> DpStorageSize & = delete;
   ~DpStorageSize() = default;
 
-  void set(std::string);
+  void set(std::string) override;
 };
 
 class DpHandlerDurationThreshold : public DeviceProperty {
 public:
-  DpHandlerDurationThreshold() {}
+  DpHandlerDurationThreshold() = default;
   DpHandlerDurationThreshold(const DpHandlerDurationThreshold &) = delete;
   DpHandlerDurationThreshold(const DpHandlerDurationThreshold &&) = delete;
-  DpHandlerDurationThreshold &
-  operator=(const DpHandlerDurationThreshold &) = delete;
+  auto operator=(DpHandlerDurationThreshold const &)
+      -> DpHandlerDurationThreshold & = delete;
+  auto operator=(DpHandlerDurationThreshold &&)
+      -> DpHandlerDurationThreshold & = delete;
   ~DpHandlerDurationThreshold() = default;
 
-  void set(std::string);
+  void set(std::string) override;
 };
 
 class EventsAboveThreshold : public DeviceProperty {
 public:
-  EventsAboveThreshold() {}
+  EventsAboveThreshold() = default;
   EventsAboveThreshold(const EventsAboveThreshold &) = delete;
   EventsAboveThreshold(const EventsAboveThreshold &&) = delete;
-  EventsAboveThreshold &operator=(const EventsAboveThreshold &) = delete;
+  auto operator=(EventsAboveThreshold const &)
+      -> EventsAboveThreshold & = delete;
+  auto operator=(EventsAboveThreshold &&) -> EventsAboveThreshold & = delete;
   ~EventsAboveThreshold() = default;
 
-  void set(std::string);
+  void set(std::string) override;
 };
 
 class Snapshot : public DeviceProperty {
 public:
-  Snapshot() {}
+  Snapshot() = default;
   Snapshot(const Snapshot &) = delete;
   Snapshot(const Snapshot &&) = delete;
-  Snapshot &operator=(const Snapshot &) = delete;
+  auto operator=(Snapshot const &) -> Snapshot & = delete;
+  auto operator=(Snapshot &&) -> Snapshot & = delete;
   ~Snapshot() = default;
 
   void set(const std::string);
-
-private:
 };
 
 class Histogram : public DeviceProperty {
@@ -160,76 +175,58 @@ public:
   Histogram() {}
   Histogram(const Histogram &) = delete;
   Histogram(const Histogram &&) = delete;
-  Histogram &operator=(const Histogram &) = delete;
+  auto operator=(Histogram const &) -> Histogram & = delete;
+  auto operator=(Histogram &&) -> Histogram & = delete;
   ~Histogram() = default;
 
   void set(const std::string);
-
-private:
 };
 
 class Event : public DeviceProperty {
 public:
-  Event() {}
+  Event() = default;
   Event(const Event &) = delete;
   Event(const Event &&) = delete;
-  Event &operator=(const Event &) = delete;
+  auto operator=(Event const &) -> Event & = delete;
+  auto operator=(Event &&) -> Event & = delete;
   ~Event() = default;
 
-  void set(const std::string);
-
-private:
+  void set(const std::string) override;
 };
 
 class statsLogger {
 public:
+  using buffer_size_t = size_t;
   statsLogger()
-      : loggingStatus_{false}, threshold_{500}, bufferSize_{5000},
-        dumpFilePath_{""}, pDpEnable_{nullptr}, pDpStorageSize_{nullptr},
-        pDpHandlerDurationThreshold_{nullptr}, pHistogram_{nullptr},
-        pEvent_{nullptr}, pSnapshotStats_{nullptr},
-        pEventsAboveThreshold_{nullptr}, dump_buffer_{nullptr},
-        histogram_{nullptr}, histogram_axis_{""}, upper_limit_{400},
-        bucket_size_{10}, number_of_buckets_{static_cast<unsigned>(
-                              ceil(upper_limit_ / bucket_size_))},
+      : upper_limit_{400}, bucket_size_{10},
+        number_of_buckets_{
+            static_cast<unsigned>(ceil(upper_limit_ / bucket_size_))},
         overflow_bucket_{number_of_buckets_} {}
 
   bool isLogging() { return loggingStatus_; }
 
   friend class statsResourceManager;
   friend void DpEnable::set(std::string);
-  void setThreshold(std::uint32_t _threshold) {
+  void setThreshold(std::chrono::milliseconds _threshold) {
     const std::lock_guard<std::mutex> loggerLock(loggerMutex_);
     threshold_ = _threshold;
   }
-  void setBufferSize(std::uint32_t _bufferSize) {
+  void setBufferSize(buffer_size_t _bufferSize) {
     const std::lock_guard<std::mutex> loggerLock(loggerMutex_);
     bufferSize_ = _bufferSize;
-  }
-  void setFilePath(const std::string &_dumpFilePath) {
-    const std::lock_guard<std::mutex> loggerLock(loggerMutex_);
-    dumpFilePath_ = _dumpFilePath;
   }
   void log(const handler_stat &h_stat);
   void dumpStats(void);
 
 private:
-  std::string toString();
-
-  void turnLoggerOn();
-  void turnLoggerOff();
-  void histogram_snapshot();
-  void events_above_threshold_snapshot();
-
-  std::atomic_bool loggingStatus_;
-  std::uint32_t threshold_;
-  std::uint32_t bufferSize_;
-  std::string dumpFilePath_;
+  std::atomic_bool loggingStatus_ = false;
+  std::chrono::milliseconds threshold_ = std::chrono::milliseconds(500);
+  buffer_size_t bufferSize_ = 5000;
 
   std::mutex loggerMutex_;
 
   DpEnable *pDpEnable_ = nullptr;
-  DpStorageSize *pDpStorageSize_;
+  DpStorageSize *pDpStorageSize_ = nullptr;
   DpHandlerDurationThreshold *pDpHandlerDurationThreshold_ = nullptr;
   Snapshot *pSnapshotStats_ = nullptr;
   EventsAboveThreshold *pEventsAboveThreshold_ = nullptr;
@@ -242,10 +239,17 @@ private:
   std::unique_ptr<histogram_t> histogram_;
   std::string histogram_axis_;
 
-  const unsigned upper_limit_;
-  const unsigned bucket_size_;
-  unsigned number_of_buckets_;
-  unsigned overflow_bucket_;
+  unsigned const upper_limit_;
+  unsigned const bucket_size_;
+  size_t const number_of_buckets_;
+  size_t const overflow_bucket_;
+
+  std::string toString();
+
+  void turnLoggerOn();
+  void turnLoggerOff();
+  void histogram_snapshot();
+  void events_above_threshold_snapshot();
 };
 
 class statsResourceManager {
@@ -285,8 +289,8 @@ private:
 
   std::shared_ptr<statsLogger> pLogger_;
 
-  std::string appName_;
-  std::string devRoot_;
+  std::string appName_ = "unknown_app";
+  std::filesystem::path devRoot_ = "/dev/vsomeip/";
 };
 
 } // namespace vsomeip_v3

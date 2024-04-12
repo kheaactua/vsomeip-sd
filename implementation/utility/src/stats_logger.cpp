@@ -72,8 +72,8 @@ static constexpr std::array<std::string_view, 83> apps_white_list = {
     "wf-client",
     "wf-ci-service",
     "wf-ar-service",
-    "amf_ping-client",
-    "amf_ping-service",
+    "amf_ping-qnx-client",
+    "amf_ping-qnx-service",
     "capicxx-example-service",
     "capicxx-example-client",
     "cabin-client",
@@ -123,8 +123,7 @@ static constexpr std::array<std::string_view, 83> apps_white_list = {
     "inhibit_farewell_test",
     "launch-cluster-proxy",
     "RCN_DiagnosticsAgent",
-    "max-defrost-qnx-service"
-};
+    "max-defrost-qnx-service"};
 
 bool is_appl_enabled_at_boot(const std::string &name) {
   auto it =
@@ -138,13 +137,12 @@ bool is_appl_enabled_at_boot(const std::string &name) {
 #endif // STATS_USE_WHITE_LIST
 
 std::string handler_stat::toString(void) {
+  using clock_t = std::chrono::system_clock;
+
   struct tm *timeinfo = nullptr;
   char time_stamp_buffer[80];
 
-  std::chrono::system_clock::time_point const stamp_time_point{
-      std::chrono::system_clock::duration{time_stamp}};
-  std::time_t const stamp_time_t{
-      std::chrono::system_clock::to_time_t(stamp_time_point)};
+  std::time_t const stamp_time_t{clock_t::to_time_t(time_stamp)};
   timeinfo = localtime(&stamp_time_t);
   strftime(time_stamp_buffer, 80, "%T", timeinfo);
 
@@ -154,10 +152,10 @@ std::string handler_stat::toString(void) {
        << std::setfill('0') << service_id << "." << std::hex << std::setw(4)
        << std::setfill('0') << instance_id << "." << std::hex << std::setw(4)
        << std::setfill('0') << method_id << "]"
-       << " " << std::dec << handler_type << " " << std::dec << duration_ms
-       << std::endl;
+       << " " << std::dec << handler_type << " " << std::dec
+       << duration.count();
 
-  return std::string(sstr.str());
+  return sstr.str();
 }
 
 std::string handler_stat::bannerString(void) {
@@ -187,11 +185,12 @@ void DpEnable::set(const std::string v) {
 void DpStorageSize::set(const std::string v) {
   std::string shortV = v.substr(0, v.find("\n"));
   if (std::all_of(shortV.begin(), shortV.end(), ::isdigit)) {
-    pLogger_->setBufferSize(std::stoi(shortV));
+    pLogger_->setBufferSize(
+        static_cast<statsLogger::buffer_size_t>(std::stoi(shortV)));
     formattedPropVal_ = v;
   } else {
-    VSOMEIP_ERROR << "[vsomeip_stats]: DpStorageSize::set() not a digit: "
-                  << shortV;
+    VSOMEIP_ERROR << "[vsomeip_stats]: " << __func__
+                  << " not a digit: " << shortV;
   }
 
   // Update nbytes, consumed by io_read
@@ -202,11 +201,10 @@ void DpHandlerDurationThreshold::set(const std::string v) {
   std::string shortV = v.substr(0, v.find("\n"));
   if (std::all_of(shortV.begin(), shortV.end(), ::isdigit)) {
     formattedPropVal_ = v;
-    pLogger_->setThreshold(std::stoi(shortV));
+    pLogger_->setThreshold(std::chrono::milliseconds(std::stoi(shortV)));
   } else {
-    VSOMEIP_ERROR
-        << "[vsomeip_stats]: DpHandlerDurationThreshold::set() not a digit: "
-        << shortV;
+    VSOMEIP_ERROR << "[vsomeip_stats]: " << __func__
+                  << " not a digit: " << shortV;
   }
 
   // Update nbytes, consumed by io_read
@@ -267,8 +265,7 @@ void statsLogger::events_above_threshold_snapshot(void) {
     }
     pEventsAboveThreshold_->set(sstr.str());
   } catch (const std::exception &e) {
-    VSOMEIP_ERROR << "[vsomeip_stats]: events_above_threshold_snapshot(): "
-                  << e.what();
+    VSOMEIP_ERROR << "[vsomeip_stats]: " << __func__ << "(): " << e.what();
     pEventsAboveThreshold_->set("processing error");
   }
 }
@@ -288,7 +285,9 @@ void statsLogger::histogram_snapshot(void) {
     }
 
     for (auto const i : *dump_buffer_) {
-      auto bucket = static_cast<unsigned>(floor(i.duration_ms / bucket_size_));
+      auto bucket = static_cast<decltype(number_of_buckets_)>(std::floor(
+          static_cast<decltype(number_of_buckets_)>(i.duration.count()) /
+          bucket_size_));
       if (bucket > number_of_buckets_) {
         (*histogram_)[overflow_bucket_]++;
       } else {
@@ -302,16 +301,16 @@ void statsLogger::histogram_snapshot(void) {
       sstr.width(BUCKET_PRINT_WIDTH);
       sstr << std::left << i;
     }
-    sstr << "\n" << std::endl;
+    sstr << "\n\n";
 
     sstr << "max duration handler:\n";
     sstr << handler_stat::bannerString() << "\n";
     sstr << max_handler.toString();
-    sstr << std::endl;
+    sstr << "\n";
 
     pHistogram_->set(sstr.str());
   } catch (const std::exception &e) {
-    VSOMEIP_ERROR << "[vsomeip_stats]: histogram_snapshot(): " << e.what();
+    VSOMEIP_ERROR << "[vsomeip_stats]: " << __func__ << "(): " << e.what();
     pHistogram_->set("processing error");
   }
 }
@@ -327,7 +326,7 @@ void statsLogger::turnLoggerOn() {
       histogram_ = std::make_unique<histogram_t>(overflow_bucket_ + 1);
 
       std::ostringstream sstr;
-      for (int i = 0; i < overflow_bucket_; i++) {
+      for (unsigned int i = 0; i < overflow_bucket_; i++) {
         sstr.width(BUCKET_PRINT_WIDTH);
         sstr.fill('.');
         sstr << std::right << (i + 1) * bucket_size_;
@@ -338,7 +337,7 @@ void statsLogger::turnLoggerOn() {
     loggingStatus_ = true;
   } catch (const std::exception &e) {
     loggingStatus_ = false;
-    VSOMEIP_ERROR << "[vsomeip_stats]: turnLoggerOn(): " << e.what();
+    VSOMEIP_ERROR << "[vsomeip_stats]: " << __func__ << ": " << e.what();
   }
   return;
 }
@@ -353,27 +352,28 @@ void statsLogger::log(const handler_stat &h_stat) {
     return;
   }
 
-  const std::lock_guard<std::mutex> loggerLock(loggerMutex_);
+  std::lock_guard const loggerLock(loggerMutex_);
   if (!dump_buffer_) {
     return;
   }
+
   try {
-    if (h_stat.duration_ms >= threshold_) {
+    if (h_stat.duration >= threshold_) {
       dump_buffer_->push_back(std::move(h_stat));
     }
-    if (h_stat.duration_ms > max_handler.duration_ms) {
+    if (h_stat.duration > max_handler.duration) {
       max_handler = h_stat;
     }
   } catch (const std::exception &e) {
     loggingStatus_ = false;
-    VSOMEIP_ERROR << "[vsomeip_stats]: log(): " << e.what();
+    VSOMEIP_ERROR << "[vsomeip_stats]: " << __func__ << ": " << e.what();
     return;
   }
 }
 
 void statsResourceManager::start(const std::string &_appName,
                                  size_t _storageSize,
-                                 size_t _durationThreshol_MS) {
+                                 std::chrono::milliseconds _durationThreshold) {
   appName_ = _appName;
   VSOMEIP_INFO << "[vsomeip_stats]: start() " << __progname << " : "
                << appName_;
@@ -409,7 +409,7 @@ void statsResourceManager::start(const std::string &_appName,
   auto const formattedInitDpStorageSizeVal =
       std::to_string(_storageSize) + "\n";
   auto const formattedInitDpHandlerDurationThresholdVal =
-      std::to_string(_durationThreshol_MS) + "\n";
+      std::to_string(_durationThreshold.count()) + "\n";
 
   std::thread resmgrThread(&statsResourceManager::runResourceManagerThread,
                            this, formattedInitDpEnableVal,
@@ -444,7 +444,7 @@ static int io_write(resmgr_context_t *const pDispatchContext, io_write_t *pMsg,
 
   auto pDevAttr =
       static_cast<DeviceAttribute *>(static_cast<void *>(ocb->attr));
-  auto *attr = static_cast<iofunc_attr_t *>(&pDevAttr->attr);
+  auto *attr = &pDevAttr->attr;
   auto *pDevProp = pDevAttr->pDevProp;
 
   // Alloc space for [ text + '\n' (nbytes) + 1 ('\0') ]
@@ -541,7 +541,7 @@ void statsResourceManager::runResourceManagerThread(
 std::unique_ptr<statsResourceManager>
 statsResourceManager::init(const std::string &_appName) {
   auto resMng = std::make_unique<statsResourceManager>();
-  resMng->start(_appName, 60000, 4);
+  resMng->start(_appName, 60000, std::chrono::milliseconds(4));
   return std::move(resMng);
 }
 
@@ -550,8 +550,8 @@ void statsResourceManager::init(
     const std::string &formattedInitDpStorageSizeVal,
     const std::string &formattedInitDpHandlerDurationThresholdVal) {
 
-  std::string dumpFilePath =
-      std::string("/dev/shmem/vsomeip_stats_") + appName_;
+  auto const dumpFilePath =
+      std::filesystem::path("/dev/shmem") / ("vsomeip_stats_" + appName_);
 
   std::memset(&resmgrAttr_, 0, sizeof resmgrAttr_);
   resmgrAttr_.nparts_max = 1;
@@ -565,168 +565,191 @@ void statsResourceManager::init(
   ioFuncs_.read = io_read;
   ioFuncs_.read64 = io_read;
 
-  // Setup Device Properties + each Attribute Structure
-  // Attach Device Properties
-  int id = -1;
+  std::filesystem::path const base_path(devRoot_ / __progname / appName_);
+  {
+    // Setup Device Properties + each Attribute Structure
+    // Attach Device Properties
 
-  dpStorageSize_.initialize(
-      static_cast<long>(formattedInitDpStorageSizeVal.size()), &dpStorageSize_,
-      pLogger_);
-  dpStorageSize_.set(formattedInitDpStorageSizeVal);
+    int id = -1;
 
-  std::string base_path(devRoot_ + __progname + "/" + appName_);
+    dpStorageSize_.initialize(
+        static_cast<long>(formattedInitDpStorageSizeVal.size()),
+        &dpStorageSize_, pLogger_);
+    dpStorageSize_.set(formattedInitDpStorageSizeVal);
 
-  std::string storage_size = base_path + "/storage_size";
-  id = resmgr_attach(pDispatch,            // Dispatch handle
-                     &resmgrAttr_,         // Resource manager attrs
-                     storage_size.c_str(), // Device name
-                     _FTYPE_ANY,           // Open type
-                     0,                    // Flags
-                     &connectFuncs_,       // Connect routines
-                     &ioFuncs_,            // I/O routines
-                     static_cast<RESMGR_HANDLE_T *>(static_cast<void *>(
-                         dpStorageSize_.getDevAttrPtr())) // Handle
-  );
-  if (id == -1) {
-    VSOMEIP_ERROR << "[vsomeip_stats]: resmgr_attach failed:"
-                  << std::strerror(errno) << ". Device property name -> "
-                  << storage_size;
-    return;
+    auto const path = base_path / "storage_size";
+    id = resmgr_attach(pDispatch,      // Dispatch handle
+                       &resmgrAttr_,   // Resource manager attrs
+                       path.c_str(),   // Device name
+                       _FTYPE_ANY,     // Open type
+                       0,              // Flags
+                       &connectFuncs_, // Connect routines
+                       &ioFuncs_,      // I/O routines
+                       reinterpret_cast<RESMGR_HANDLE_T *>(
+                           dpStorageSize_.getDevAttrPtr()) // Handle
+    );
+    if (id == -1) {
+      VSOMEIP_ERROR << "[vsomeip_stats]: resmgr_attach failed:"
+                    << std::strerror(errno) << ". Device property name → "
+                    << path;
+      return;
+    }
   }
 
-  dpHandlerDurationThreshold_.initialize(
-      static_cast<long>(formattedInitDpHandlerDurationThresholdVal.size()),
-      &dpHandlerDurationThreshold_, pLogger_);
-  dpHandlerDurationThreshold_.set(formattedInitDpHandlerDurationThresholdVal);
+  {
+    int id = -1;
+    dpHandlerDurationThreshold_.initialize(
+        static_cast<long>(formattedInitDpHandlerDurationThresholdVal.size()),
+        &dpHandlerDurationThreshold_, pLogger_);
+    dpHandlerDurationThreshold_.set(formattedInitDpHandlerDurationThresholdVal);
 
-  std::string thresholdPath = base_path + "/threshold";
-  id = resmgr_attach(pDispatch,             // Dispatch handle
-                     &resmgrAttr_,          // Resource manager attrs
-                     thresholdPath.c_str(), // Device name
-                     _FTYPE_ANY,            // Open type
-                     0,                     // Flags
-                     &connectFuncs_,        // Connect routines
-                     &ioFuncs_,             // I/O routines
-                     static_cast<RESMGR_HANDLE_T *>(static_cast<void *>(
-                         dpHandlerDurationThreshold_.getDevAttrPtr())) // Handle
-  );
-  if (id == -1) {
-    VSOMEIP_ERROR << "[vsomeip_stats]: resmgr_attach failed:"
-                  << std::strerror(errno) << ". Device property name -> "
-                  << thresholdPath;
-    return;
+    auto const path = base_path / "threshold";
+    id =
+        resmgr_attach(pDispatch,      // Dispatch handle
+                      &resmgrAttr_,   // Resource manager attrs
+                      path.c_str(),   // Device name
+                      _FTYPE_ANY,     // Open type
+                      0,              // Flags
+                      &connectFuncs_, // Connect routines
+                      &ioFuncs_,      // I/O routines
+                      reinterpret_cast<RESMGR_HANDLE_T *>(
+                          dpHandlerDurationThreshold_.getDevAttrPtr()) // Handle
+        );
+    if (id == -1) {
+      VSOMEIP_ERROR << "[vsomeip_stats]: resmgr_attach failed:"
+                    << std::strerror(errno) << ". Device property name → "
+                    << path;
+      return;
+    }
   }
 
-  snapshotStats_.initialize(2, &snapshotStats_,
-                            pLogger_); // nbytes = 2 is size for [ val + \n ]
-  snapshotStats_.set(std::string("0"));
+  {
+    int id = -1;
+    snapshotStats_.initialize(2, &snapshotStats_,
+                              pLogger_); // nbytes = 2 is size for [ val + \n ]
+    snapshotStats_.set(std::string("0"));
 
-  std::string snapshotPath = base_path + "/snapshot";
-  id = resmgr_attach(pDispatch,            // Dispatch handle
-                     &resmgrAttr_,         // Resource manager attrs
-                     snapshotPath.c_str(), // Device name
-                     _FTYPE_ANY,           // Open type
-                     0,                    // Flags
-                     &connectFuncs_,       // Connect routines
-                     &ioFuncs_,            // I/O routines
-                     static_cast<RESMGR_HANDLE_T *>(static_cast<void *>(
-                         snapshotStats_.getDevAttrPtr())) // Handle
-  );
-  if (id == -1) {
-    VSOMEIP_ERROR << "[vsomeip_stats]: resmgr_attach failed:"
-                  << std::strerror(errno) << ". Device property name -> "
-                  << snapshotPath;
-    return;
+    auto const path = base_path / "snapshot";
+    id = resmgr_attach(pDispatch,      // Dispatch handle
+                       &resmgrAttr_,   // Resource manager attrs
+                       path.c_str(),   // Device name
+                       _FTYPE_ANY,     // Open type
+                       0,              // Flags
+                       &connectFuncs_, // Connect routines
+                       &ioFuncs_,      // I/O routines
+                       reinterpret_cast<RESMGR_HANDLE_T *>(
+                           snapshotStats_.getDevAttrPtr()) // Handle
+    );
+    if (id == -1) {
+      VSOMEIP_ERROR << "[vsomeip_stats]: resmgr_attach failed:"
+                    << std::strerror(errno) << ". Device property name → "
+                    << path;
+      return;
+    }
   }
 
-  eventsAboveThreshold.initialize(static_cast<long>(dumpFilePath.size()),
-                                  &eventsAboveThreshold, pLogger_);
-  eventsAboveThreshold.set(dumpFilePath);
+  {
+    int id = -1;
+    eventsAboveThreshold.initialize(
+        static_cast<long>(dumpFilePath.string().size()), &eventsAboveThreshold,
+        pLogger_);
+    eventsAboveThreshold.set(dumpFilePath);
 
-  std::string events_above_thresholdPath =
-      base_path + "/events_above_threshold";
-  id = resmgr_attach(pDispatch,    // Dispatch handle
-                     &resmgrAttr_, // Resource manager attrs
-                     events_above_thresholdPath.c_str(), // Device name
-                     _FTYPE_ANY,                         // Open type
-                     0,                                  // Flags
-                     &connectFuncs_,                     // Connect routines
-                     &ioFuncs_,                          // I/O routines
-                     static_cast<RESMGR_HANDLE_T *>(static_cast<void *>(
-                         eventsAboveThreshold.getDevAttrPtr())) // Handle
-  );
-  if (id == -1) {
-    VSOMEIP_ERROR << "[vsomeip_stats]: resmgr_attach failed:"
-                  << std::strerror(errno) << ". Device property name -> "
-                  << events_above_thresholdPath;
-    return;
+    auto const path = base_path / "events_above_threshold";
+    id = resmgr_attach(pDispatch,      // Dispatch handle
+                       &resmgrAttr_,   // Resource manager attrs
+                       path.c_str(),   // Device name
+                       _FTYPE_ANY,     // Open type
+                       0,              // Flags
+                       &connectFuncs_, // Connect routines
+                       &ioFuncs_,      // I/O routines
+                       reinterpret_cast<RESMGR_HANDLE_T *>(
+                           eventsAboveThreshold.getDevAttrPtr()) // Handle
+    );
+    if (id == -1) {
+      VSOMEIP_ERROR << "[vsomeip_stats]: resmgr_attach failed:"
+                    << std::strerror(errno) << ". Device property name → "
+                    << path;
+      return;
+    }
   }
 
-  std::string stats = std::string("stats:");
-  dpHistogram_.initialize(static_cast<long>(stats.size()), &dpHistogram_,
-                          pLogger_);
-  dpHistogram_.set(stats);
+  {
+    int id = -1;
+    auto stats = std::string("stats:");
+    dpHistogram_.initialize(static_cast<long>(stats.size()), &dpHistogram_,
+                            pLogger_);
+    dpHistogram_.set(stats);
 
-  std::string histogramPath = base_path + "/histogram";
-  id = resmgr_attach(pDispatch,             // Dispatch handle
-                     &resmgrAttr_,          // Resource manager attrs
-                     histogramPath.c_str(), // Device name
-                     _FTYPE_ANY,            // Open type
-                     0,                     // Flags
-                     &connectFuncs_,        // Connect routines
-                     &ioFuncs_,             // I/O routines
-                     static_cast<RESMGR_HANDLE_T *>(static_cast<void *>(
-                         dpHistogram_.getDevAttrPtr())) // Handle
-  );
-  if (id == -1) {
-    VSOMEIP_ERROR << "[vsomeip_stats]: resmgr_attach failed:"
-                  << std::strerror(errno) << ". Device property name -> "
-                  << histogramPath;
-    return;
+    auto const path = base_path / "histogram";
+    id = resmgr_attach(pDispatch,      // Dispatch handle
+                       &resmgrAttr_,   // Resource manager attrs
+                       path.c_str(),   // Device name
+                       _FTYPE_ANY,     // Open type
+                       0,              // Flags
+                       &connectFuncs_, // Connect routines
+                       &ioFuncs_,      // I/O routines
+                       reinterpret_cast<RESMGR_HANDLE_T *>(
+                           dpHistogram_.getDevAttrPtr()) // Handle
+    );
+    if (id == -1) {
+      VSOMEIP_ERROR << "[vsomeip_stats]: resmgr_attach failed:"
+                    << std::strerror(errno) << ". Device property name → "
+                    << path;
+      return;
+    }
   }
 
-  std::string emptyStr = std::string("");
-  event_.initialize(static_cast<long>(emptyStr.size()), &event_, pLogger_);
-  event_.set(emptyStr);
+  {
+    int id = -1;
+    std::string emptyStr = std::string("");
+    event_.initialize(static_cast<long>(emptyStr.size()), &event_, pLogger_);
+    event_.set(emptyStr);
 
-  std::string eventPath = base_path + "/event";
-  id = resmgr_attach(pDispatch,         // Dispatch handle
-                     &resmgrAttr_,      // Resource manager attrs
-                     eventPath.c_str(), // Device name
-                     _FTYPE_ANY,        // Open type
-                     0,                 // Flags
-                     &connectFuncs_,    // Connect routines
-                     &ioFuncs_,         // I/O routines
-                     static_cast<RESMGR_HANDLE_T *>(
-                         static_cast<void *>(event_.getDevAttrPtr())) // Handle
-  );
-  if (id == -1) {
-    VSOMEIP_ERROR << "[vsomeip_stats]: resmgr_attach failed:"
-                  << std::strerror(errno) << ". Device property name -> "
-                  << eventPath;
-    return;
+    auto const path = base_path / "event";
+    id = resmgr_attach(
+        pDispatch,      // Dispatch handle
+        &resmgrAttr_,   // Resource manager attrs
+        path.c_str(),   // Device name
+        _FTYPE_ANY,     // Open type
+        0,              // Flags
+        &connectFuncs_, // Connect routines
+        &ioFuncs_,      // I/O routines
+        reinterpret_cast<RESMGR_HANDLE_T *>(event_.getDevAttrPtr()) // Handle
+    );
+    if (id == -1) {
+      VSOMEIP_ERROR << "[vsomeip_stats]: resmgr_attach failed:"
+                    << std::strerror(errno) << ". Device property name → "
+                    << path;
+      return;
+    }
   }
 
-  dpEnable_.initialize(2, &dpEnable_,
-                       pLogger_); // nbytes = 2 is size for [ val + \n ]
-  dpEnable_.set(formattedInitDpEnableVal); // if logging from bootup, starts NOW
+  {
+    int id = -1;
+    dpEnable_.initialize(2, &dpEnable_,
+                         pLogger_); // nbytes = 2 is size for [ val + \n ]
+    dpEnable_.set(
+        formattedInitDpEnableVal); // if logging from bootup, starts NOW
 
-  std::string enablePath = base_path + "/vsomeip_enable";
-  id = resmgr_attach(pDispatch,          // Dispatch handle
-                     &resmgrAttr_,       // Resource manager attrs
-                     enablePath.c_str(), // Device name
-                     _FTYPE_ANY,         // Open type
-                     0,                  // Flags
-                     &connectFuncs_,     // Connect routines
-                     &ioFuncs_,          // I/O routines
-                     static_cast<RESMGR_HANDLE_T *>(static_cast<void *>(
-                         dpEnable_.getDevAttrPtr())) // Handle
-  );
-  if (id == -1) {
-    VSOMEIP_ERROR << "[vsomeip_stats]: resmgr_attach failed:"
-                  << std::strerror(errno) << ". Device property name -> "
-                  << enablePath;
-    return;
+    auto const path = base_path / "vsomeip_enable";
+    id = resmgr_attach(
+        pDispatch,      // Dispatch handle
+        &resmgrAttr_,   // Resource manager attrs
+        path.c_str(),   // Device name
+        _FTYPE_ANY,     // Open type
+        0,              // Flags
+        &connectFuncs_, // Connect routines
+        &ioFuncs_,      // I/O routines
+        reinterpret_cast<RESMGR_HANDLE_T *>(dpEnable_.getDevAttrPtr()) // Handle
+    );
+    if (id == -1) {
+      VSOMEIP_ERROR << "[vsomeip_stats]: resmgr_attach failed:"
+                    << std::strerror(errno) << ". Device property name → "
+                    << path;
+      return;
+    }
+  }
   }
 }
 
