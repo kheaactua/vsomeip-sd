@@ -18,6 +18,7 @@
 #endif
 #include "../../utility/include/byteorder.hpp"
 #include "../../utility/include/utility.hpp"
+#include "../../utility/include/stats_logger.hpp"
 
 namespace vsomeip_v3 {
 

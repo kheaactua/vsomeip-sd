@@ -22,7 +22,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
-#include <cstring>
+#include <string_view>
 #include <thread>
 
 #ifdef ANDROID
@@ -40,6 +40,7 @@ extern char *__progname;
 namespace vsomeip_v3 {
 
 #ifdef STATS_USE_WHITE_LIST
+// TODO update this or at least include a generated version
 static constexpr std::array<std::string_view, 83> apps_white_list = {
     "power",
     "power-client",
@@ -125,12 +126,45 @@ static constexpr std::array<std::string_view, 83> apps_white_list = {
     "RCN_DiagnosticsAgent",
     "max-defrost-qnx-service"};
 
-bool is_appl_enabled_at_boot(std::string const& name) {
+bool is_appl_enabled_at_boot(std::string const &name) {
   auto it =
       std::find(std::begin(apps_white_list), std::end(apps_white_list), name);
   return it != std::end(apps_white_list);
 }
 #endif // STATS_USE_WHITE_LIST
+
+auto WatchpointCounter::increment(Watchpoint wp, service_t service_id,
+                                  instance_t instance_id, method_t method_id,
+                                  session_t /* session_id */,
+                                  client_t client_id,
+                                  message_type_e /* message_type */) -> void {
+  std::lock_guard lock(send_counter_mutex_);
+
+  DatumKey key(wp, service_id, instance_id, method_id, client_id);
+  auto it = send_counter_.find(key);
+  if (send_counter_.end() == it) {
+    send_counter_.emplace_hint(it, key, 1);
+  } else {
+    send_counter_[key]++;
+  }
+}
+
+auto WatchpointCounter::DatumKey::toString() const -> std::string {
+  std::ostringstream sstr;
+  // clang-format off
+  sstr << "wp=" << WatchpointCounter::watchpoint_to_string(watchpoint)
+    << ", call=["
+    << std::hex << std::setw(4)
+    << std::setfill('0') << service_id << "." << std::hex << std::setw(4)
+    << std::setfill('0') << instance_id << "." << std::hex << std::setw(4)
+    << std::setfill('0') << method_id
+    << "], "
+    << "client=" << std::setfill('0') << client_id
+  ;
+  // clang-format on
+
+  return sstr.str();
+}
 
 std::string handler_stat::toString(void) {
   using clock_t = std::chrono::system_clock;
@@ -259,6 +293,19 @@ void Event::set(const std::string /* v */) {
 #endif
 }
 
+void WatchpointCounterDeviceProperty::set(std::string const v) {
+  if (!pLogger_->isLogging()) {
+    formattedPropVal_ = std::string("watchpoints are disabled\n");
+  } else {
+    formattedPropVal_ = v;
+  }
+
+#ifdef __QNX__
+  // Update nbytes, consumed by io_read
+  devAttr_.attr.nbytes = static_cast<long>(formattedPropVal_.size());
+#endif
+}
+
 void statsLogger::dumpStats(void) {
   const std::lock_guard<std::mutex> loggerLock(loggerMutex_);
 
@@ -328,6 +375,25 @@ void statsLogger::histogram_snapshot(void) {
   }
 }
 
+void statsLogger::watchpoint_snapshot() {
+  if (!pWatchPoints_ || !dump_buffer_) {
+    pWatchPoints_->set("processing error");
+    return;
+  }
+
+  std::ostringstream sstr;
+  for (auto const &[key, val] : watchpointCounter_.data()) {
+    sstr << key.toString() << ", count=" << std::dec << val << "\n";
+    ;
+  }
+  try {
+    pWatchPoints_->set(sstr.str());
+  } catch (std::exception const &e) {
+    VSOMEIP_ERROR << "[vsomeip_stats]: " << __func__ << ": " << e.what();
+    pWatchPoints_->set("processing error");
+  }
+}
+
 void statsLogger::turnLoggerOn() {
   const std::lock_guard<std::mutex> loggerLock(loggerMutex_);
   try {
@@ -384,6 +450,35 @@ void statsLogger::log(const handler_stat &h_stat) {
   }
 }
 
+void statsLogger::logWatchpoint(WatchpointCounter::Watchpoint watchpoint,
+                                service_t service_id, instance_t instance_id,
+                                method_t method_id, session_t session_id,
+                                client_t client_id,
+                                message_type_e message_type) {
+  std::lock_guard const loggerLock(loggerMutex_);
+
+  watchpointCounter_.increment(watchpoint, service_id, instance_id, method_id,
+                               session_id, client_id, message_type);
+
+  auto const now = std::chrono::steady_clock::now();
+
+  // Throttle the updates by time
+  auto const exceeded_time =
+      (now - last_update_watchpoints_) > watchpoint_update_interval_;
+
+  // Throttle the updates by count
+  auto const exceeded_count =
+      (watchpointCounter_.size() - last_watchpoint_size_) >
+      watchpoint_update_threshold_;
+
+  if (exceeded_time || exceeded_count) {
+    last_watchpoint_size_ = watchpointCounter_.size();
+    last_update_watchpoints_ = now;
+
+    watchpoint_snapshot();
+  }
+}
+
 auto statsResourceManager::getInstance() -> statsResourceManager & {
   static statsResourceManager instance;
   return instance;
@@ -419,6 +514,7 @@ void statsResourceManager::start(std::string app_name, size_t _storageSize,
   pLogger_->pSnapshotStats_ = &snapshotStats_;
   pLogger_->pEventsAboveThreshold_ = &eventsAboveThreshold;
   pLogger_->pHistogram_ = &dpHistogram_;
+  pLogger_->pWatchPoints_ = &dpWatchpointCounter_;
 
   // Correctly format init values for runResourceManagerThread function
   auto const formattedInitDpEnableVal =
@@ -769,6 +865,31 @@ void statsResourceManager::init(
       return;
     }
   }
+
+  {
+    int id = -1;
+    auto txt = std::string("No watchpoints yet");
+    dpWatchpointCounter_.initialize(static_cast<long>(txt.size()),
+                                    &dpWatchpointCounter_, pLogger_);
+    dpWatchpointCounter_.set(txt);
+
+    auto const path = base_path / "watchpoints";
+    id = resmgr_attach(pDispatch,      // Dispatch handle
+                       &resmgrAttr_,   // Resource manager attrs
+                       path.c_str(),   // Device name
+                       _FTYPE_ANY,     // Open type
+                       0,              // Flags
+                       &connectFuncs_, // Connect routines
+                       &ioFuncs_,      // I/O routines
+                       reinterpret_cast<RESMGR_HANDLE_T *>(
+                           dpWatchpointCounter_.getDevAttrPtr()) // Handle
+    );
+    if (id == -1) {
+      VSOMEIP_ERROR << "[vsomeip_stats]: resmgr_attach failed:"
+                    << std::strerror(errno) << ". Device property name → "
+                    << path;
+      return;
+    }
   }
 #endif
 }

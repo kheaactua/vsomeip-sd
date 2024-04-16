@@ -25,6 +25,7 @@
 
 #include <atomic>
 #include <filesystem>
+#include <map>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -33,6 +34,10 @@
 
 #include <vsomeip/constants.hpp>
 #include <vsomeip/primitive_types.hpp>
+
+#ifndef WATCHPOINT_UPDATE_THRESHOLD
+#define WATCHPOINT_UPDATE_THRESHOLD 100
+#endif
 
 namespace vsomeip_v3 {
 
@@ -66,6 +71,106 @@ struct handler_stat {
 using c_buffer = boost::circular_buffer<handler_stat>;
 using histogram_t = std::vector<unsigned long>;
 
+template <typename Enum>
+auto constexpr get_underlying(Enum const &value) ->
+    typename std::enable_if<std::is_enum<Enum>::value,
+                            typename std::underlying_type<Enum>::type>::type {
+  return static_cast<typename std::underlying_type<Enum>::type>(value);
+}
+
+inline constexpr uint16_t ANY_SESSION = std::numeric_limits<session_t>::max();
+
+class WatchpointCounter {
+public:
+  enum class Watchpoint : uint8_t {
+    OTHER,
+    APPL_IMPL_SEND,
+    RMB_SEND,
+    TCP_SERVER_ASYNC_WRITE,
+    TCP_CLIENT_ASYNC_WRITE,
+    UDS_SERVER_ASYNC_WRITE,
+    UDS_CLIENT_ASYNC_WRITE,
+    UDS_CLIENT_CONNECT,
+    SERVER_ENDPOINT_FLUSH_CBK
+  };
+
+  struct DatumKey {
+    Watchpoint watchpoint = Watchpoint::OTHER;
+    service_t service_id = ANY_SERVICE;
+    instance_t instance_id = ANY_INSTANCE;
+    method_t method_id = ANY_METHOD;
+    client_t client_id = ANY_CLIENT;
+
+    DatumKey(Watchpoint _watchpoint, service_t _service_id = ANY_SERVICE,
+             instance_t _instance_id = ANY_INSTANCE,
+             method_t _method_id = ANY_METHOD, client_t _client_id = ANY_CLIENT)
+        : watchpoint{_watchpoint}, service_id{_service_id},
+          instance_id{_instance_id}, method_id{_method_id},
+          client_id{_client_id} {}
+
+    auto operator<(DatumKey const &o) const -> bool {
+      if (get_underlying(watchpoint) != get_underlying(o.watchpoint))
+        return get_underlying(watchpoint) < get_underlying(o.watchpoint);
+      if (service_id != o.service_id)
+        return service_id < o.service_id;
+      if (instance_id != o.instance_id)
+        return instance_id < o.instance_id;
+      if (method_id != o.method_id)
+        return method_id < o.method_id;
+      if (client_id != o.client_id)
+        return client_id < o.client_id;
+      return false;
+    }
+
+    auto toString() const -> std::string;
+  };
+
+  static auto constexpr watchpoint_to_string(Watchpoint wp)
+      -> std::string_view {
+    switch (wp) {
+    case Watchpoint::OTHER:
+      return "OTHER";
+    case Watchpoint::APPL_IMPL_SEND:
+      return "APPL_IMPL_SEND";
+    case Watchpoint::RMB_SEND:
+      return "RMB_SEND";
+    case Watchpoint::TCP_SERVER_ASYNC_WRITE:
+      return "TCP_SERVER_ASYNC_WRITE";
+    case Watchpoint::TCP_CLIENT_ASYNC_WRITE:
+      return "TCP_CLIENT_ASYNC_WRITE";
+    case Watchpoint::UDS_SERVER_ASYNC_WRITE:
+      return "UDS_SERVER_ASYNC_WRITE";
+    case Watchpoint::UDS_CLIENT_ASYNC_WRITE:
+      return "UDS_CLIENT_ASYNC_WRITE";
+    case Watchpoint::UDS_CLIENT_CONNECT:
+      return "UDS_CLIENT_CONNECT";
+    case Watchpoint::SERVER_ENDPOINT_FLUSH_CBK:
+      return "SERVER_ENDPOINT_FLUSH_CBK";
+    default:
+      return "UNKNOWN";
+    }
+  }
+
+  using data_t = std::map<DatumKey, unsigned long>;
+
+private:
+  data_t send_counter_;
+  std::mutex send_counter_mutex_;
+
+public:
+  WatchpointCounter() = default;
+  ~WatchpointCounter() = default;
+  WatchpointCounter(WatchpointCounter const &) = delete;
+  WatchpointCounter(WatchpointCounter &&) = delete;
+
+  void increment(Watchpoint, service_t, instance_t, method_t, session_t,
+                 client_t, message_type_e);
+
+  auto size() const -> data_t::size_type { return send_counter_.size(); }
+
+  auto data() -> data_t const { return send_counter_; }
+};
+
 class statsLogger;
 class DeviceProperty;
 class statsResourceManager;
@@ -86,7 +191,7 @@ public:
   auto operator=(DeviceProperty &&) -> DeviceProperty & = delete;
   virtual ~DeviceProperty() = default;
 
-  void initialize(long, DeviceProperty *, std::shared_ptr<statsLogger>&);
+  void initialize(long, DeviceProperty *, std::shared_ptr<statsLogger> &);
 
   // Takes a string that is formatted (propVal + '/n') to be set primarily from
   // io_write
@@ -199,6 +304,22 @@ public:
   void set(const std::string) override;
 };
 
+class WatchpointCounterDeviceProperty : public DeviceProperty {
+public:
+  WatchpointCounterDeviceProperty() = default;
+  WatchpointCounterDeviceProperty(const WatchpointCounterDeviceProperty &) =
+      delete;
+  WatchpointCounterDeviceProperty(const WatchpointCounterDeviceProperty &&) =
+      delete;
+  auto operator=(WatchpointCounterDeviceProperty const &)
+      -> WatchpointCounterDeviceProperty & = delete;
+  auto operator=(WatchpointCounterDeviceProperty &&)
+      -> WatchpointCounterDeviceProperty & = delete;
+  ~WatchpointCounterDeviceProperty() = default;
+
+  void set(const std::string) override;
+};
+
 class statsLogger {
 public:
   using buffer_size_t = size_t;
@@ -226,12 +347,23 @@ public:
     bufferSize_ = _bufferSize;
   }
   void log(const handler_stat &h_stat);
+  void logWatchpoint(WatchpointCounter::Watchpoint, service_t, instance_t,
+                     method_t, session_t, client_t, message_type_e);
+
   void dumpStats(void);
 
 private:
   std::atomic_bool loggingStatus_ = false;
   std::chrono::milliseconds threshold_ = std::chrono::milliseconds(500);
   buffer_size_t bufferSize_ = 5000;
+  std::chrono::milliseconds watchpoint_update_interval_ =
+      std::chrono::milliseconds(200);
+
+  std::chrono::steady_clock::time_point last_update_watchpoints_{
+      std::chrono::steady_clock::now()};
+  WatchpointCounter::data_t::size_type last_watchpoint_size_ = 0;
+  static inline constexpr WatchpointCounter::data_t::size_type
+      watchpoint_update_threshold_ = WATCHPOINT_UPDATE_THRESHOLD;
 
   std::mutex loggerMutex_;
 
@@ -242,6 +374,7 @@ private:
   EventsAboveThreshold *pEventsAboveThreshold_ = nullptr;
   Histogram *pHistogram_ = nullptr;
   Event *pEvent_ = nullptr;
+  WatchpointCounterDeviceProperty *pWatchPoints_ = nullptr;
 
   handler_stat max_handler;
   std::unique_ptr<c_buffer> dump_buffer_;
@@ -262,6 +395,7 @@ private:
   void turnLoggerOff();
   void histogram_snapshot();
   void events_above_threshold_snapshot();
+  void watchpoint_snapshot();
 };
 
 #ifndef __QNX__
@@ -273,6 +407,22 @@ public:
   static auto getInstance() -> statsResourceManager &;
 
   void log(const handler_stat &h_stat) { pLogger_->log(h_stat); }
+  // clang-format off
+  void logWatchpoint(
+    WatchpointCounter::Watchpoint watchpoint,
+    service_t service_id   = ANY_SERVICE,
+    instance_t instance_id = ANY_INSTANCE,
+    method_t method_id     = ANY_METHOD,
+    session_t session_id   = ANY_SESSION,
+    client_t client_id     = ANY_CLIENT,
+    message_type_e message_type = message_type_e::MT_UNKNOWN
+  )
+  // clang-format on
+  {
+    pLogger_->logWatchpoint(watchpoint, service_id, instance_id, method_id,
+                            session_id, client_id, message_type);
+  }
+
   void start(std::string app_name, size_t _storageSize = 60000,
              std::chrono::milliseconds _durationThreshold =
                  std::chrono::milliseconds(4));
@@ -294,6 +444,7 @@ private:
   EventsAboveThreshold eventsAboveThreshold;
   Histogram dpHistogram_;
   Event event_;
+  WatchpointCounterDeviceProperty dpWatchpointCounter_;
 
   std::shared_ptr<statsLogger> pLogger_;
 

@@ -500,10 +500,6 @@ private:
     vsomeip_sec_client_t sec_client_;
 
     bool has_session_handling_;
-
-#ifdef STATS_LOGGER_ON
-    std::unique_ptr<statsResourceManager> stats_;
-#endif //STATS_LOGGER_ON
 };
 
 } // namespace vsomeip_v3
