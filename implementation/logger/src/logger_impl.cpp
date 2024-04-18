@@ -67,7 +67,7 @@ logger_impl::init(std::shared_ptr<configuration> const& _configuration) {
 
     // Use a 16kB log buffer by default
     // Override with a size specified by environment variable
-    auto num_pages = 4;
+    long unsigned int num_pages = 4;
     auto s = getenv("VSOMEIP_SLOG2_NUM_PAGES");
     if (s != nullptr)
     {
@@ -154,9 +154,26 @@ logger_impl::log(level_e const _level, std::chrono::system_clock::time_point con
         std::cerr << __FILE__ << ": " << __func__
             << " No configuration object available!  Was logger invoked before the application was started?\n";
         std::cerr << " Failed message: " << _data << "\n";
+
+        std::lock_guard<std::mutex> its_lock(mutex_);
+        log_queue_.emplace(std::make_tuple(_level, when_, _data));
         return;
     }
 
+    // Emoty out the queued log messages
+    while (log_queue_.size() > 0)
+    {
+        auto& [level, when, data] = log_queue_.front();
+        do_log(level, when, data.c_str());
+        log_queue_.pop();
+    }
+
+    do_log(_level, when_, _data);
+}
+
+void
+logger_impl::do_log(level_e const _level, std::chrono::system_clock::time_point const when_, const char *_data) {
+    auto const& its_configuration = get_configuration();
     std::lock_guard<std::mutex> its_lock(mutex_);
 
     if (its_configuration->has_console_log()

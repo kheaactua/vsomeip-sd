@@ -9,6 +9,7 @@
 #include <chrono>
 #include <memory>
 #include <mutex>
+#include <queue>
 
 #ifdef __QNX__
 #include <sys/slog2.h>
@@ -35,6 +36,7 @@ public:
     std::shared_ptr<configuration> get_configuration() const;
 
     void log(level_e const _level, std::chrono::system_clock::time_point const when_, const char* _data);
+    void do_log(level_e const _level, std::chrono::system_clock::time_point const when_, const char* _data);
 
 private:
 #ifdef USE_DLT
@@ -54,6 +56,8 @@ private:
     // Flag for whether init was called and processed (didn't immediately exit
     // from a guard)
     bool is_initialized_ = false;
+
+    std::queue<std::tuple<level_e, std::chrono::system_clock::time_point, std::string>> log_queue_;
 
 #ifdef __QNX__
     // Flag whether slog2 was successfully initialized.
