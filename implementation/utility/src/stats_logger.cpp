@@ -164,10 +164,15 @@ std::string handler_stat::bannerString(void) {
 }
 
 void DeviceProperty::initialize(long _nbytes, DeviceProperty *_pDevProp,
-                                std::shared_ptr<statsLogger> _pLogger) {
+                                std::shared_ptr<statsLogger> &_pLogger) {
+#ifdef __QNX__
   iofunc_attr_init(&devAttr_.attr, S_IFNAM | 0666, 0, 0);
   devAttr_.attr.nbytes = _nbytes;
   devAttr_.pDevProp = _pDevProp;
+#endif
+  static_cast<void>(_nbytes);
+  static_cast<void>(_pDevProp);
+
   pLogger_ = _pLogger;
 }
 
@@ -193,8 +198,10 @@ void DpStorageSize::set(const std::string v) {
                   << " not a digit: " << shortV;
   }
 
+#ifdef __QNX__
   // Update nbytes, consumed by io_read
   devAttr_.attr.nbytes = static_cast<long>(formattedPropVal_.size());
+#endif
 }
 
 void DpHandlerDurationThreshold::set(const std::string v) {
@@ -207,15 +214,19 @@ void DpHandlerDurationThreshold::set(const std::string v) {
                   << " not a digit: " << shortV;
   }
 
+#ifdef __QNX__
   // Update nbytes, consumed by io_read
   devAttr_.attr.nbytes = static_cast<long>(formattedPropVal_.size());
+#endif
 }
 
 void EventsAboveThreshold::set(const std::string v) {
   formattedPropVal_ = v;
 
+#ifdef __QNX__
   // Update nbytes, consumed by io_read
   devAttr_.attr.nbytes = static_cast<long>(formattedPropVal_.size());
+#endif
 }
 
 void Snapshot::set(const std::string v) {
@@ -224,8 +235,10 @@ void Snapshot::set(const std::string v) {
   }
 
   formattedPropVal_ = v;
+#ifdef __QNX__
   // Update nbytes, consumed by io_read
   devAttr_.attr.nbytes = static_cast<long>(formattedPropVal_.size());
+#endif
 
   pLogger_->dumpStats();
 }
@@ -237,13 +250,17 @@ void Histogram::set(const std::string v) {
     formattedPropVal_ = v;
   }
 
+#ifdef __QNX__
   // Update nbytes, consumed by io_read
   devAttr_.attr.nbytes = static_cast<long>(formattedPropVal_.size());
+#endif
 }
 
 void Event::set(const std::string v) {
+#ifdef __QNX__
   // Update nbytes, consumed by io_read
   devAttr_.attr.nbytes = static_cast<long>(formattedPropVal_.size());
+#endif
 }
 
 void statsLogger::dumpStats(void) {
@@ -418,6 +435,7 @@ void statsResourceManager::start(const std::string &_appName,
   resmgrThread.detach();
 }
 
+#ifdef __QNX__
 static int io_write(resmgr_context_t *const pDispatchContext, io_write_t *pMsg,
                     RESMGR_OCB_T *const pOcb) {
   auto *const ocb = static_cast<iofunc_ocb_t *>(pOcb);
@@ -509,22 +527,28 @@ static int io_read(resmgr_context_t *const pDispatchContext, io_read_t *pMsg,
 
   return _RESMGR_NPARTS(nparts);
 }
+#endif
 
 void statsResourceManager::runResourceManagerThread(
     const std::string formattedInitDpEnableVal,
     const std::string formattedInitDpStorageSizeVal,
     const std::string formattedInitDpHandlerDurationThresholdVal) {
   pthread_setname_np(pthread_self(), "vsomeip_stats_resmgr");
+#ifdef __QNX__
   dispatch_t *pDispatch = dispatch_create_channel(-1, DISPATCH_FLAG_NOLOCK);
-  if (pDispatch == nullptr) {
+  if (nullptr == pDispatch) {
     VSOMEIP_ERROR << "[vsomeip_stats]: dispatch_create_channel() failed: "
                   << __progname << " : " << appName_;
     return;
   }
+#else
+  dispatch_t *pDispatch = nullptr;
+#endif
 
   init(pDispatch, formattedInitDpEnableVal, formattedInitDpStorageSizeVal,
        formattedInitDpHandlerDurationThresholdVal);
 
+#ifdef __QNX__
   dispatch_context_t *pDispatchContext = dispatch_context_alloc(pDispatch);
 
   while (1) {
@@ -536,13 +560,7 @@ void statsResourceManager::runResourceManagerThread(
     }
     std::this_thread::yield();
   }
-}
-
-std::unique_ptr<statsResourceManager>
-statsResourceManager::init(const std::string &_appName) {
-  auto resMng = std::make_unique<statsResourceManager>();
-  resMng->start(_appName, 60000, std::chrono::milliseconds(4));
-  return std::move(resMng);
+#endif
 }
 
 void statsResourceManager::init(
@@ -550,6 +568,7 @@ void statsResourceManager::init(
     const std::string &formattedInitDpStorageSizeVal,
     const std::string &formattedInitDpHandlerDurationThresholdVal) {
 
+#ifdef __QNX__
   auto const dumpFilePath =
       std::filesystem::path("/dev/shmem") / ("vsomeip_stats_" + appName_);
 
@@ -751,6 +770,7 @@ void statsResourceManager::init(
     }
   }
   }
+#endif
 }
 
 } // namespace vsomeip_v3

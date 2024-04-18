@@ -17,8 +17,10 @@
 #ifndef STATSLOGGER_HPP
 #define STATSLOGGER_HPP
 
+#ifdef __QNX__
 #include <sys/dispatch.h>
 #include <sys/iofunc.h>
+#endif
 
 #include <atomic>
 #include <filesystem>
@@ -68,7 +70,9 @@ class DeviceProperty;
 class statsResourceManager;
 
 struct DeviceAttribute {
+#ifdef __QNX__
   iofunc_attr_t attr; // Default io function attr -- MUST BE FIRST
+#endif
   DeviceProperty *pDevProp = nullptr;
 };
 
@@ -81,7 +85,7 @@ public:
   auto operator=(DeviceProperty &&) -> DeviceProperty & = delete;
   virtual ~DeviceProperty() = default;
 
-  void initialize(long, DeviceProperty *, std::shared_ptr<statsLogger>);
+  void initialize(long, DeviceProperty *, std::shared_ptr<statsLogger>&);
 
   // Takes a string that is formatted (propVal + '/n') to be set primarily from
   // io_write
@@ -275,9 +279,11 @@ private:
             const std::string &formattedInitDpStorageSizeVal,
             const std::string &formattedInitDpHandlerDurationThresholdVal);
 
+#ifdef __QNX__
   resmgr_connect_funcs_t connectFuncs_;
   resmgr_io_funcs_t ioFuncs_;
   resmgr_attr_t resmgrAttr_;
+#endif
 
   DpEnable dpEnable_;
   DpStorageSize dpStorageSize_;
