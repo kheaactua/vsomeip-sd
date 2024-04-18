@@ -20,6 +20,8 @@ typedef uint32_t command_size_t;
 
 class command {
 public:
+    virtual ~command() = default;
+
     inline id_e get_id() const  { return id_; }
     inline version_t get_version() const { return version_; }
     inline client_t get_client() const { return client_; }
