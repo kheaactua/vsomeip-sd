@@ -17,6 +17,10 @@
 #include "../../protocol/include/protocol.hpp"
 #include "../../routing/include/routing_host.hpp"
 
+#ifdef STATS_LOGGER_ON
+#include "../../utility/include/stats_logger.hpp"
+#endif
+
 namespace vsomeip_v3 {
 
 local_tcp_client_endpoint_impl::local_tcp_client_endpoint_impl(
@@ -212,6 +216,10 @@ void local_tcp_client_endpoint_impl::send_queued(std::pair<message_buffer_ptr_t,
 
     {
         std::lock_guard<std::mutex> its_lock(socket_mutex_);
+
+#ifdef STATS_LOGGER_ON
+        statsResourceManager::getInstance().logWatchpoint(WatchpointCounter::Watchpoint::TCP_CLIENT_ASYNC_WRITE);
+#endif
         boost::asio::async_write(
             *socket_,
             bufs,

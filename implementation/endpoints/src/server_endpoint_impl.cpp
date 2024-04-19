@@ -29,6 +29,10 @@
 #include "../../utility/include/utility.hpp"
 #include "../../service_discovery/include/defines.hpp"
 
+#ifdef STATS_LOGGER_ON
+#include "../../utility/include/stats_logger.hpp"
+#endif
+
 namespace vsomeip_v3 {
 
 template<typename Protocol>
@@ -763,6 +767,12 @@ template<typename Protocol>
 void server_endpoint_impl<Protocol>::flush_cbk(
         endpoint_type _key,
         const boost::system::error_code &_error_code) {
+
+#ifdef STATS_LOGGER_ON
+    statsResourceManager::getInstance().logWatchpoint(
+        WatchpointCounter::Watchpoint::SERVER_ENDPOINT_FLUSH_CBK
+    );
+#endif
 
     if (!_error_code) {
 

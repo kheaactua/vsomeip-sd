@@ -24,6 +24,10 @@
 #include "../../utility/include/byteorder.hpp"
 #include "../../utility/include/utility.hpp"
 
+#ifdef STATS_LOGGER_ON
+#include "../../utility/include/stats_logger.hpp"
+#endif
+
 namespace vsomeip_v3 {
 
 local_uds_server_endpoint_impl::local_uds_server_endpoint_impl(
@@ -572,6 +576,9 @@ void local_uds_server_endpoint_impl::connection::send_queued(
 
     {
         std::lock_guard<std::mutex> its_lock(socket_mutex_);
+#ifdef STATS_LOGGER_ON
+        statsResourceManager::getInstance().logWatchpoint(WatchpointCounter::Watchpoint::UDS_CLIENT_ASYNC_WRITE);
+#endif
         boost::asio::async_write(
             socket_,
             bufs,

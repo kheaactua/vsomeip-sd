@@ -18,7 +18,9 @@
 #endif
 #include "../../utility/include/byteorder.hpp"
 #include "../../utility/include/utility.hpp"
+#ifdef STATS_LOGGER_ON
 #include "../../utility/include/stats_logger.hpp"
+#endif
 
 namespace vsomeip_v3 {
 
@@ -1016,6 +1018,10 @@ bool routing_manager_base::send(client_t _client,
     } else {
         VSOMEIP_ERROR << "Failed to serialize message. Check message size!";
     }
+#ifdef STATS_LOGGER_ON
+    statsResourceManager::getInstance().logWatchpoint(WatchpointCounter::Watchpoint::RMB_SEND, _message->get_service(),
+            _message->get_instance(), _message->get_method(), _message->get_session(), _client, _message->get_message_type());
+#endif
     return is_sent;
 }
 

@@ -18,6 +18,9 @@
 #include "../../protocol/include/protocol.hpp"
 #include "../../routing/include/routing_host.hpp"
 
+#ifdef STATS_LOGGER_ON
+#include "../../utility/include/stats_logger.hpp"
+#endif
 namespace vsomeip_v3 {
 
 local_uds_client_endpoint_impl::local_uds_client_endpoint_impl(
@@ -107,6 +110,14 @@ void local_uds_client_endpoint_impl::stop() {
 
 void local_uds_client_endpoint_impl::connect() {
     start_connecting_timer();
+
+#ifdef STATS_LOGGER_ON
+    {
+        auto its_host = endpoint_host_.lock();
+        statsResourceManager::getInstance().logWatchpoint(WatchpointCounter::Watchpoint::UDS_CLIENT_CONNECT, ANY_SERVICE, ANY_INSTANCE, ANY_METHOD, ANY_SESSION, its_host->get_client());
+    }
+#endif
+
     boost::system::error_code its_connect_error;
     {
         std::lock_guard<std::mutex> its_lock(socket_mutex_);
@@ -245,6 +256,12 @@ void local_uds_client_endpoint_impl::send_queued(std::pair<message_buffer_ptr_t,
 
     {
         std::lock_guard<std::mutex> its_lock(socket_mutex_);
+#ifdef STATS_LOGGER_ON
+        {
+            auto its_host = endpoint_host_.lock();
+            statsResourceManager::getInstance().logWatchpoint(WatchpointCounter::Watchpoint::UDS_CLIENT_CONNECT, ANY_SERVICE, ANY_INSTANCE, ANY_METHOD, ANY_SESSION, its_host->get_client());
+        }
+#endif
         boost::asio::async_write(
             *socket_,
             bufs,

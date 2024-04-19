@@ -18,6 +18,10 @@
 #include "../../utility/include/utility.hpp"
 #include "../../utility/include/byteorder.hpp"
 
+#ifdef STATS_LOGGER_ON
+#include "../../utility/include/stats_logger.hpp"
+#endif
+
 namespace ip = boost::asio::ip;
 
 namespace vsomeip_v3 {
@@ -494,6 +498,10 @@ void tcp_server_endpoint_impl::connection::send_queued(
     {
         std::lock_guard<std::mutex> its_lock(socket_mutex_);
         _it->second.is_sending_ = true;
+
+#ifdef STATS_LOGGER_ON
+        statsResourceManager::getInstance().logWatchpoint(WatchpointCounter::Watchpoint::TCP_SERVER_ASYNC_WRITE, its_service, ANY_INSTANCE, its_method, its_session, its_client, message_type_e::MT_UNKNOWN);
+#endif
 
         boost::asio::async_write(socket_, boost::asio::buffer(*its_buffer),
                  std::bind(&tcp_server_endpoint_impl::connection::write_completion_condition,

@@ -944,6 +944,9 @@ void application_impl::send(std::shared_ptr<message> _message) {
             _message->set_session(get_session(true));
         }
         // Always increment the session-id
+#ifdef STATS_LOGGER_ON
+        statsResourceManager::getInstance().logWatchpoint(WatchpointCounter::Watchpoint::APPL_IMPL_SEND, _message->get_service(), _message->get_instance(), _message->get_method(), is_request ? session_ : _message->get_session(),is_request ? client_.load() : _message->get_client(), _message->get_message_type());
+#endif
         (void)routing_->send(client_, _message, false);
     }
 }
