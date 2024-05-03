@@ -211,12 +211,15 @@ void service_discovery_impl::do_start_sd(std::function<void(void)> on_complete, 
     }
 
     std::lock_guard<std::mutex> its_lock(endpoint_mutex_);
-    endpoint_ = host_->create_service_discovery_endpoint(
-            sd_multicast_, port_, reliable_);
     if (!endpoint_) {
-        VSOMEIP_ERROR << "Couldn't start service discovery" << (wait_for_result ? "" : " - likely due to timeing out waiting for a network interface");
-        return;
+        endpoint_ = host_->create_service_discovery_endpoint(
+                sd_multicast_, port_, reliable_);
+        if (!endpoint_) {
+            VSOMEIP_ERROR << "Couldn't start service discovery" << (wait_for_result ? "" : " - likely due to timeing out waiting for a network interface");
+            return;
+        }
     }
+
     {
         std::lock_guard<std::mutex> its_lock(sessions_received_mutex_);
         sessions_received_.clear();
@@ -251,45 +254,43 @@ void service_discovery_impl::do_start_sd(std::function<void(void)> on_complete, 
 
 void
 service_discovery_impl::start(std::function<void(void)> on_routing_started) {
-    if (!endpoint_) {
 #if defined(__QNX__)
-        auto* const use_async_sd = getenv(VSOMEIP_ENV_USE_ASYNCHRONOUS_SD);
+    auto* const use_async_sd = getenv(VSOMEIP_ENV_USE_ASYNCHRONOUS_SD);
 #else
-        // Linux/Android uses netlink, so there's less need for this
-        // asynchroneous service discovery
-        const char* use_async_sd = nullptr;
+    // Linux/Android uses netlink, so there's less need for this
+    // asynchroneous service discovery
+    const char* use_async_sd = nullptr;
 #endif
 
-        if (use_async_sd)
-        {
-            // Perform the SD setup in a new thread, and use a wait in that block
-            // to wait for the network to be available
-            VSOMEIP_DEBUG << "Starting service discovery using separate thread";
-            endpoint_getter_thread_ = std::thread(&service_discovery_impl::do_start_sd, this, on_routing_started, true);
-            endpoint_getter_thread_.detach();
+    if (use_async_sd)
+    {
+        // Perform the SD setup in a new thread, and use a wait in that block
+        // to wait for the network to be available
+        VSOMEIP_DEBUG << "Starting service discovery using separate thread";
+        endpoint_getter_thread_ = std::thread(&service_discovery_impl::do_start_sd, this, on_routing_started, true);
+        endpoint_getter_thread_.detach();
 #if defined(__linux__) || defined(ANDROID) || defined(__QNX__)
-            {
-                auto err = pthread_setname_np(endpoint_getter_thread_.native_handle(), "sd_start");
-                if (err) {
-                    VSOMEIP_ERROR << "Could not rename SD thread: " << errno << ":" << strerror(errno);
-                }
+        {
+            auto err = pthread_setname_np(endpoint_getter_thread_.native_handle(), "sd_start");
+            if (err) {
+                VSOMEIP_ERROR << "Could not rename SD thread: " << errno << ":" << strerror(errno);
             }
+        }
 #endif
-        } else {
-            // Perform the SD setup in the current thread (synchronously), and
-            // if VSOMEIP_ENV_WAIT_FOR_INTERFACE exists use a wait in that block
-            // to wait for the network to be available.  Note that
-            // VSOMEIP_ENV_WAIT_FOR_INTERFACE mostly exists for performance
-            // testing.
+    } else {
+        // Perform the SD setup in the current thread (synchronously), and
+        // if VSOMEIP_ENV_WAIT_FOR_INTERFACE exists use a wait in that block
+        // to wait for the network to be available.  Note that
+        // VSOMEIP_ENV_WAIT_FOR_INTERFACE mostly exists for performance
+        // testing.
 
 #if defined(__QNX__)
-            auto* const wait_for_interface_env = getenv(VSOMEIP_ENV_WAIT_FOR_INTERFACE);
+        auto* const wait_for_interface_env = getenv(VSOMEIP_ENV_WAIT_FOR_INTERFACE);
 #else
-            const char* wait_for_interface_env = nullptr;
+        const char* wait_for_interface_env = nullptr;
 #endif
-            VSOMEIP_DEBUG << "Starting service discovery using main thread" << (wait_for_interface_env ? ", will block for network interface" : ", will assume network interface pre-exists");
-            do_start_sd(on_routing_started, wait_for_interface_env != nullptr);
-        }
+        VSOMEIP_DEBUG << "Starting service discovery using main thread" << (wait_for_interface_env ? ", will block for network interface" : ", will assume network interface pre-exists");
+        do_start_sd(on_routing_started, wait_for_interface_env != nullptr);
     }
 }
 
