@@ -957,6 +957,7 @@ udp_server_endpoint_impl::set_multicast_option(
         boost::asio::ip::multicast::join_group its_join_option;
         {
             std::lock_guard<std::mutex> its_lock(local_mutex_);
+
             if (is_v4_) {
 #if VSOMEIP_USE_MULTICAST_JOIN_INTERFACE_FILTER
                 // Must tell the kernel to filter out undesired multicast
@@ -989,18 +990,32 @@ udp_server_endpoint_impl::set_multicast_option(
                 if (rc < 0) {
                     VSOMEIP_ERROR << "udp_server_endpoint_impl:: Could not join mcast group via IP_ADD_MEMBERSHIP. Err =[" << rc << "] str [" << ::strerror(errno) << "]";
                 }
+
+                ec.clear();
 #else
                 its_join_option = boost::asio::ip::multicast::join_group(
                         _address.to_v4(),
                         local_.address().to_v4());
+                multicast_socket_->set_option(its_join_option, ec);
+
+                if (ec) {
+                    VSOMEIP_ERROR << "udp_server_endpoint_impl::join: "
+                            << "join (set_option) failed (" << ec.message() << ")";
+                }
+
 #endif // VSOMEIP_USE_MULTICAST_JOIN_INTERFACE_FILTER
             } else {
                 its_join_option = boost::asio::ip::multicast::join_group(
                         _address.to_v6(),
                         static_cast<unsigned int>(local_.address().to_v6().scope_id()));
+                multicast_socket_->set_option(its_join_option, ec);
+
+                if (ec) {
+                    VSOMEIP_ERROR << "udp_server_endpoint_impl::join: "
+                            << "join (set_option) failed (" << ec.message() << ")";
+                }
             }
         }
-        multicast_socket_->set_option(its_join_option, ec);
 
         if (!ec) {
             std::lock_guard<std::recursive_mutex> its_guard(multicast_mutex_);
