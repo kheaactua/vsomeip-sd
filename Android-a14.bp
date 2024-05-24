@@ -1,0 +1,340 @@
+package {
+    default_visibility: ["//visibility:private"],
+}
+
+vsomeip_version = "3.4.10"
+boost_version = "108200"
+
+filegroup {
+    name: "libvsomeip_srcs",
+    srcs: [
+        "implementation/endpoints/**/*.cpp",
+        "implementation/logger/**/*.cpp",
+        "implementation/tracing/**/*.cpp",
+        "implementation/message/**/*.cpp",
+        "implementation/routing/**/*.cpp",
+        "implementation/runtime/**/*.cpp",
+        "implementation/utility/**/*.cpp",
+        "implementation/plugin/**/*.cpp",
+        "implementation/protocol/**/*.cpp",
+        "implementation/security/**/*.cpp",
+    ],
+}
+
+filegroup {
+    name: "libvsomeip_cfg_srcs",
+    srcs: ["implementation/configuration/src/*.cpp"],
+}
+
+filegroup {
+    name: "libvsomeip_compat_srcs",
+    srcs: [
+        "implementation/compat/message/src/*.cpp",
+        "implementation/compat/runtime/src/*.cpp",
+    ],
+}
+
+filegroup {
+    name: "libvsomeip_e2e_srcs",
+    srcs: ["implementation/e2e_protection/src/*.cpp"],
+}
+
+filegroup {
+    name: "libvsomeip_sd_srcs",
+    srcs: ["implementation/service_discovery/src/*.cpp"],
+}
+
+filegroup {
+    name: "routingmanagerd_srcs",
+    srcs: ["examples/routingmanagerd/routingmanagerd.cpp"],
+}
+
+cc_defaults {
+    name: "vsomeip_defaults",
+    cpp_std: "c++17",
+
+    cppflags: [
+        "-fexceptions",
+        "-Wno-non-virtual-dtor",
+        "-Wno-unused-const-variable",
+        "-Wno-unused-parameter",
+        "-Wno-unused-private-field",
+        "-Wno-unused-lambda-capture",
+        "-Wno-unused-variable",
+        "-Wno-unused-local-typedef",
+        "-Wno-sign-compare",
+        "-Wno-format",
+        "-Wno-header-guard",
+        "-Wno-overloaded-virtual",
+        "-Wno-implicit-fallthrough",
+        "-Wno-deprecated-declarations",
+        "-DVSOMEIP_ENABLE_MULTIPLE_ROUTING_MANAGERS",
+        "-DVSOMEIP_DISABLE_SECURITY",
+        // "-DVSOMEIP_BUILDIN_CONFIGURATION", // Built-in config not yet implemented in Android.bp
+        "-DVSOMEIP_USE_MULTICAST_JOIN_INTERFACE_FILTER",
+        "-Wno-error",
+        "-Wno-shorten-64-to-32",
+        "-D_GTHREAD_USE_MUTEX_INIT_FUNC",
+        "-D_GTHREAD_USE_RECURSIVE_MUTEX_INIT_FUNC",
+    ],
+}
+
+cc_defaults {
+    name: "vsomeip_lib_defaults",
+    defaults: ["vsomeip_defaults"],
+
+    local_include_dirs: [
+        "interface",
+
+        // Only required for boost <=1.66
+        // "implementation/helper",
+    ],
+    rtti: true,
+
+    cflags: [
+        "-DVSOMEIP_DEFAULT_CONFIGURATION_FOLDER=\"/system/etc/vsomeip/\"",
+        "-DVSOMEIP_DEFAULT_CONFIGURATION_FILE=\"\"",
+        "-DVSOMEIP_BASE_PATH=\"/data/system/ford/capi/run/\"",
+        "-DVSOMEIP_UNICAST_ADDRESS=\"10.7.0.10\"",
+        "-DVSOMEIP_NETMASK=\"255.255.0.0\"",
+        "-DAOSP_SYSTEM_PARTITION",
+        "-DVSOMEIP_BOOST_VERSION=" + boost_version,
+        "-DVSOMEIP_VERSION=\"" + vsomeip_version + "\"",
+        "-DVSOMEIP_INTERNAL_SUPPRESS_DEPRECATED",
+        "-DVSOMEIP_NETMASK=\"255.255.0.0\"",
+    ],
+    target: {
+        vendor: {
+            cflags: [
+                "-UVSOMEIP_DEFAULT_CONFIGURATION_FOLDER",
+                "-UVSOMEIP_DEFAULT_CONFIGURATION_FILE",
+                "-UVSOMEIP_BASE_PATH",
+                "-UVSOMEIP_UNICAST_ADDRESS",
+                "-UAOSP_SYSTEM_PARTITION",
+
+                "-DVSOMEIP_DEFAULT_CONFIGURATION_FOLDER=\"/vendor/etc/vsomeip/\"",
+                "-DVSOMEIP_DEFAULT_CONFIGURATION_FILE=\"\"",
+                "-DVSOMEIP_BASE_PATH=\"/data/vendor/ford/capi/run/\"",
+                "-DVSOMEIP_UNICAST_ADDRESS=\"10.6.0.10\"",
+                "-DVSOMEIP_NETMASK=\"255.255.0.0\"",
+            ],
+        },
+    },
+}
+
+cc_defaults {
+    name: "vendor_vsomeip_defaults",
+    defaults: ["vsomeip_defaults"],
+    vendor_available: true,
+}
+
+sysprop_library {
+    name: "vsomeip.system.logging_properties",
+    srcs: ["android/sysprop/PlatformLoggingProperties.sysprop"],
+    property_owner: "Platform",
+    vendor: false,
+}
+
+sysprop_library {
+    name: "vsomeip.vendor.logging_properties",
+    srcs: ["android/sysprop/VendorLoggingProperties.sysprop"],
+    property_owner: "Vendor",
+    vendor: true,
+}
+
+// TODO: write a genrule for internal.hpp.in -> internal.hpp
+// Note, there is an internal_android.hpp file
+
+// Consumers likely should use the `capi_app` cc_default in order to build a
+// CommonAPI app rather than directly link to `libvsomeip3
+cc_library {
+    name: "libvsomeip3",
+    visibility: ["//visibility:public"],
+    defaults: [
+        "vsomeip_lib_defaults",
+        "vendor_vsomeip_defaults",
+    ],
+
+    srcs: [
+        ":libvsomeip_srcs",
+        // TODO only for VSOMEIP_ENABLE_MULTIPLE_ROUTING_MANAGERS
+        "implementation/configuration/src/configuration_impl.cpp",
+    ],
+
+    static: {
+        enabled: false,
+    },
+
+    cflags: [
+        "-DWITHOUT_SYSTEMD",
+        "-DVSOMEIP_VERSION=\"" + vsomeip_version + "\"",
+        "-DVSOMEIP_COMPAT_VERSION=\"" + vsomeip_version + "\"",
+        // "-DUSE_DLT",
+    ],
+
+    ldflags: [
+        "-Wl,-wrap,socket",
+        "-Wl,-wrap,accept",
+        "-Wl,-wrap,open",
+    ],
+
+    export_system_include_dirs: [
+        "interface",
+    ],
+
+    shared: {
+        shared_libs: [
+            "libboost_system",
+            // "libboost_thread", // Required for security in policy_manager
+            "libboost_filesystem",
+            "liblog",
+            "libutils",
+            "libvsomeip.system.logging_properties",
+        ],
+    },
+
+    target: {
+        vendor: {
+            exclude_shared_libs: ["libvsomeip.system.logging_properties"],
+            shared_libs: ["libvsomeip.vendor.logging_properties"],
+        },
+    },
+}
+
+// Do not build if VSOMEIP_ENABLE_MULTIPLE_ROUTING_MANAGERS is on
+// TODO Not sure of the best "Soong" way to make this conditional.  Soong config module and use `enabled`?
+cc_library {
+    name: "libvsomeip3-cfg",
+    stem: "libvsomeip_cfg",
+    visibility: ["//visibility:public"],
+    defaults: [
+        "vsomeip_lib_defaults",
+        "vendor_vsomeip_defaults",
+    ],
+
+    srcs: [":libvsomeip_cfg_srcs"],
+
+    static: {
+        enabled: false,
+    },
+
+    shared: {
+        shared_libs: [
+            "libvsomeip3",
+            "libboost_system",
+            "libboost_filesystem",
+            "libvsomeip.system.logging_properties",
+            "liblog",
+        ],
+    },
+
+    target: {
+        vendor: {
+            exclude_shared_libs: ["libvsomeip.system.logging_properties"],
+            shared_libs: ["libvsomeip.vendor.logging_properties"],
+        },
+    },
+
+    // Because we use VSOMEIP_ENABLE_MULTIPLE_ROUTING_MANAGERS, no consumer
+    // should use this lib, however at the time of commit there exist some
+    // consumers of this lib so we cannot yet disable it
+    enabled: true,
+}
+
+cc_library {
+    name: "libvsomeip3-e2e",
+    stem: "libvsomeip_e2e",
+    visibility: ["//visibility:public"],
+    defaults: [
+        "vsomeip_lib_defaults",
+        "vendor_vsomeip_defaults",
+    ],
+    srcs: [":libvsomeip_e2e_srcs"],
+
+    static: {
+        enabled: false,
+    },
+
+    shared: {
+        shared_libs: [
+            "libvsomeip3",
+        ],
+    },
+}
+
+cc_library {
+    name: "libvsomeip3-sd",
+    stem: "libvsomeip_sd",
+    visibility: ["//visibility:public"],
+    defaults: [
+        "vsomeip_lib_defaults",
+        "vendor_vsomeip_defaults",
+    ],
+
+    srcs: [":libvsomeip_sd_srcs"],
+
+    static: {
+        enabled: false,
+    },
+
+    shared: {
+        shared_libs: [
+            "libvsomeip3",
+            "libboost_thread",
+        ],
+    },
+}
+
+cc_defaults {
+    name: "routingmanagerd",
+    defaults: [
+        "vsomeip_defaults",
+    ],
+    srcs: [":routingmanagerd_srcs"],
+
+    cflags: [
+        "-DROUTING_APPLICATION_NAME=\"com.ford.system.routingmanagerd\"",
+        // NetworkIDs for system/vendor are set by the script
+        // device/ford/belford/oem_eth_setup.sh
+        //
+        // second virtio network for vSOMEIP /system communication has netd ID 12
+        "-DTARGET_NETID=12",
+    ],
+
+    target: {
+        vendor: {
+            cflags: [
+                "-UROUTING_APPLICATION_NAME",
+                "-DROUTING_APPLICATION_NAME=\"com.ford.vendor.routingmanagerd\"",
+                "-UTARGET_NETID",
+                // third virtio network for vSOMEIP /vendor communication has netd ID 13
+                "-DTARGET_NETID=13",
+            ],
+        },
+
+    },
+
+    shared_libs: [
+        "libvsomeip3",
+        "libvsomeip3-e2e",
+        "libvsomeip3-sd",
+        "libboost_thread",
+        "liblog",
+        "libutils",
+        "libandroid_net",
+    ],
+}
+
+cc_binary {
+    name: "com.ford.vendor.routingmanagerd",
+    defaults: ["routingmanagerd"],
+    vendor: true,
+    required: ["com.ford.vsomeip.config.vendor"],
+}
+
+cc_binary {
+    name: "com.ford.system.routingmanagerd",
+    defaults: ["routingmanagerd"],
+    vendor: false,
+    required: ["com.ford.vsomeip.config.system"],
+}
