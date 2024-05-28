@@ -11,52 +11,6 @@
 
 #ifdef ANDROID
 #include <utils/Log.h>
-
-#ifdef ALOGE
-#undef ALOGE
-#endif
-
-#define ALOGE(LOG_TAG, ...) ((void)ALOG(LOG_ERROR, LOG_TAG, __VA_ARGS__))
-#ifndef LOGE
-#define LOGE ALOGE
-#endif
-
-#ifdef ALOGW
-#undef ALOGW
-#endif
-
-#define ALOGW(LOG_TAG, ...) ((void)ALOG(LOG_WARN, LOG_TAG, __VA_ARGS__))
-#ifndef LOGE
-#define LOGW ALOGW
-#endif
-
-#ifdef ALOGI
-#undef ALOGI
-#endif
-
-#define ALOGI(LOG_TAG, ...) ((void)ALOG(LOG_INFO, LOG_TAG, __VA_ARGS__))
-#ifndef LOGE
-#define LOGI ALOGI
-#endif
-
-#ifdef ALOGD
-#undef ALOGD
-#endif
-
-#define ALOGD(LOG_TAG, ...) ((void)ALOG(LOG_DEBUG, LOG_TAG, __VA_ARGS__))
-#ifndef LOGE
-#define LOGD ALOGD
-#endif
-
-#ifdef ALOGV
-#undef ALOGV
-#endif
-
-#define ALOGV(LOG_TAG, ...) ((void)ALOG(LOG_VERBOSE, LOG_TAG, __VA_ARGS__))
-#ifndef LOGE
-#define LOGV ALOGV
-#endif
-
 #endif
 
 #include <vsomeip/internal/logger.hpp>
@@ -69,6 +23,12 @@ namespace vsomeip_v3 {
 namespace logger {
 
 std::mutex message::mutex__;
+
+#ifdef __QNX__
+slog2_buffer_set_config_t   logger_impl::buffer_config = {0};
+slog2_buffer_t              logger_impl::buffer_handle[1] = {0};
+#endif
+
 
 message::message(level_e _level)
     : std::ostream(&buffer_),
@@ -85,65 +45,24 @@ message::~message() try {
     if (!its_configuration)
         return;
 
-    // Write to logcat before filtering on the level.  This way we can employ
-    // the `[persist.]log.tag.<tag>=<V|I||W|F>`
-    if (its_configuration->has_logcat_log()) {
-#ifdef ANDROID
-        switch (level_) {
-        case level_e::LL_FATAL:
-            static_cast<void>(__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "%s", buffer_.data_.str().c_str()));
-            break;
-        case level_e::LL_ERROR:
-            static_cast<void>(__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "%s", buffer_.data_.str().c_str()));
-            break;
-        case level_e::LL_WARNING:
-            static_cast<void>(__android_log_print(ANDROID_LOG_WARN, LOG_TAG, "%s", buffer_.data_.str().c_str()));
-            break;
-        case level_e::LL_INFO:
-            static_cast<void>(__android_log_print(ANDROID_LOG_INFO, LOG_TAG, "%s", buffer_.data_.str().c_str()));
-            break;
-        case level_e::LL_DEBUG:
-            static_cast<void>(__android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "%s", buffer_.data_.str().c_str()));
-            break;
-        case level_e::LL_VERBOSE:
-            static_cast<void>(__android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", buffer_.data_.str().c_str()));
-            break;
-        default:
-            static_cast<void>(__android_log_print(ANDROID_LOG_INFO, LOG_TAG, "%s", buffer_.data_.str().c_str()));
-        };
-#endif // ANDROID
+#ifdef __QNX__
+    // Write to slog without filtering on the level.  This way we can modify
+    // the threshold in the pps settings, e.g.
+    // echo buffer_name:n:7 >> /var/pps/slog2/verbose
+    if (its_configuration->has_slog2_log() && its_logger->slog2_is_initialized()) {
+        // Truncates after 508 characters (and adds ellipsis)
+        slog2c(its_logger->buffer_handle[0], 0x0000, logger_impl::levelAsSlog2(level_), buffer_.data_.str().c_str());
     }
+#endif
 
     if (level_ > its_configuration->get_loglevel())
         return;
 
-    std::string its_level;
-    if (its_configuration->has_console_log() || its_configuration->has_file_log())
-    {
+    if (its_configuration->has_console_log()
+            || its_configuration->has_file_log()) {
+
         // Prepare log level
-        std::string its_level;
-        switch (level_) {
-        case level_e::LL_FATAL:
-            its_level = "fatal";
-            break;
-        case level_e::LL_ERROR:
-            its_level = "error";
-            break;
-        case level_e::LL_WARNING:
-            its_level = "warning";
-            break;
-        case level_e::LL_INFO:
-            its_level = "info";
-            break;
-        case level_e::LL_DEBUG:
-            its_level = "debug";
-            break;
-        case level_e::LL_VERBOSE:
-            its_level = "verbose";
-            break;
-        default:
-            its_level = "none";
-        };
+        const auto its_level = logger_impl::levelAsString(level_);
 
         // Prepare time stamp
         auto its_time_t = std::chrono::system_clock::to_time_t(when_);
@@ -156,6 +75,7 @@ message::~message() try {
         auto its_ms = (when_.time_since_epoch().count() / 100) % 1000000;
 
         if (its_configuration->has_console_log()) {
+#ifndef ANDROID
             std::cout
                 << std::dec
                 << std::setw(4) << its_time.tm_year + 1900 << "-"
@@ -169,6 +89,10 @@ message::~message() try {
                 << its_level << "] "
                 << buffer_.data_.str()
                 << std::endl;
+#else
+            std::string app = runtime::get_property("LogApplication");
+            static_cast<void>(__android_log_print(logger_impl::levelAsAospLevel(_level), app.c_str(), "VSIP: %s", buffer_.data_.str().c_str()));
+#endif // !ANDROID
         }
 
         if (its_configuration->has_file_log()) {

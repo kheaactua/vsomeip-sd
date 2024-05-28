@@ -82,6 +82,7 @@ public:
     virtual bool has_logcat_log() const = 0;
     virtual bool has_file_log() const = 0;
     virtual bool has_dlt_log() const = 0;
+    virtual bool has_slog2_log() const = 0;
     virtual const std::string &get_logfile() const = 0;
     virtual logger::level_e get_loglevel() const = 0;
 
