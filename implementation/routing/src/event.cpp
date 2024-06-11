@@ -426,7 +426,7 @@ event::notify_one_unlocked(client_t _client, bool _force) {
         set_session();
         routing_->send(_client, update_, _force);
     } else {
-        VSOMEIP_INFO << __func__
+        VSOMEIP_DEBUG << __func__
                 << ": Initial value for ["
                 << std::hex << std::setw(4) << std::setfill('0')
                 << get_service() << "." << get_instance() << "." << get_event()
