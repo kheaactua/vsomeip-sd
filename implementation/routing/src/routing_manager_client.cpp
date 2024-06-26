@@ -2568,7 +2568,7 @@ routing_manager_client::assign_client_timeout_cbk(
         }
     } else {
         VSOMEIP_WARNING << __func__ << ": Ignoring Client 0x" << std::hex << get_client()
-                << " due to error_code: " << _error.value() ;
+                << " due to error_code: " << _error.value() << "=" << _error.message();
     }
 }
 
