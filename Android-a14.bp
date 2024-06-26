@@ -102,6 +102,7 @@ cc_defaults {
         "-DVSOMEIP_VERSION=\"" + vsomeip_version + "\"",
         "-DVSOMEIP_INTERNAL_SUPPRESS_DEPRECATED",
         "-DVSOMEIP_NETMASK=\"255.255.0.0\"",
+        "-DVSOMEIP_ENABLE_DEFAULT_EVENT_CACHING",
     ],
     target: {
         vendor: {
