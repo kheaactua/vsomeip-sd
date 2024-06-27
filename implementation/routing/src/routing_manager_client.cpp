@@ -2190,10 +2190,10 @@ void routing_manager_client::register_application() {
                                 std::placeholders::_1));
             }
         }
-    } else
-        VSOMEIP_ERROR << __func__
-            << ": register application command serialization failed("
-            << std::dec << int(its_error) << ")";
+    } else {
+        VSOMEIP_ERROR << __func__ << ": register application command serialization failed("
+                      << std::dec << int(its_error) << ")";
+    }
 }
 
 void routing_manager_client::deregister_application() {

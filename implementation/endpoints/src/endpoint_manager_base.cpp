@@ -51,11 +51,18 @@ void endpoint_manager_base::remove_local(client_t const _client) {
 }
 
 std::shared_ptr<endpoint> endpoint_manager_base::find_or_create_local(client_t _client) {
-    std::lock_guard<std::mutex> its_lock(local_endpoint_mutex_);
-    std::shared_ptr<endpoint> its_endpoint(find_local_unlocked(_client));
-    if (!its_endpoint) {
-        its_endpoint = create_local_unlocked(_client);
+    std::shared_ptr<endpoint> its_endpoint {nullptr};
+    {
+        std::scoped_lock its_lock {local_endpoint_mutex_};
+        its_endpoint = find_local_unlocked(_client);
+        if (!its_endpoint) {
+            its_endpoint = create_local_unlocked(_client);
+        }
+    }
+    if (its_endpoint) {
         its_endpoint->start();
+    } else {
+        VSOMEIP_ERROR << __func__ << ": couldn't find or create endpoint for client " << _client;
     }
     return its_endpoint;
 }

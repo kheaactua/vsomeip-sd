@@ -483,8 +483,9 @@ bool server_endpoint_impl<Protocol>::check_queue_limit(const uint8_t *_data, std
         endpoint_data_type &_endpoint_data) const {
 
     // No queue limit --> Fine
-    if (endpoint_impl<Protocol>::queue_limit_ == QUEUE_SIZE_UNLIMITED)
+    if (endpoint_impl<Protocol>::queue_limit_ == QUEUE_SIZE_UNLIMITED) {
         return true;
+    }
 
     // Current queue size is bigger than the maximum queue size
     if (_endpoint_data.queue_size_ >= endpoint_impl<Protocol>::queue_limit_) {
@@ -496,7 +497,8 @@ bool server_endpoint_impl<Protocol>::check_queue_limit(const uint8_t *_data, std
             << std::dec << _endpoint_data.queue_size_ << ")";
     }
 
-    if (_endpoint_data.queue_size_ + _size > endpoint_impl<Protocol>::queue_limit_) {
+    if (_endpoint_data.queue_size_ + _size > endpoint_impl<Protocol>::queue_limit_
+        || _endpoint_data.queue_size_ + _size < _size) { // overflow protection
         service_t its_service(0);
         method_t its_method(0);
         client_t its_client(0);
