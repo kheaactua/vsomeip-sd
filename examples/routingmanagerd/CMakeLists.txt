@@ -21,6 +21,7 @@ target_link_libraries(
   routingmanagerd
   PRIVATE vsomeip3
           Boost::system
+          Boost::filesystem
           STACKTRACE_INTERFACE
           OS_INTERFACE
           DL_INTERFACE
