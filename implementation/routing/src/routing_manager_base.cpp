@@ -573,6 +573,9 @@ void routing_manager_base::register_event(client_t _client,
             = find_eventgroup(_service, _instance, eg);
         if (!its_eventgroupinfo) {
             its_eventgroupinfo = std::make_shared<eventgroupinfo>();
+#ifdef STATS_LOGGER_ON
+            statsResourceManager::getInstance().logReferencedMemory(its_eventgroupinfo);
+#endif
             its_eventgroupinfo->set_service(_service);
             its_eventgroupinfo->set_instance(_instance);
             its_eventgroupinfo->set_eventgroup(eg);
@@ -1032,6 +1035,9 @@ std::shared_ptr<serviceinfo> routing_manager_base::create_service_info(
     std::shared_ptr<serviceinfo> its_info =
             std::make_shared<serviceinfo>(_service, _instance,
                     _major, _minor, _ttl, _is_local_service);
+#ifdef STATS_LOGGER_ON
+            statsResourceManager::getInstance().logReferencedMemory(its_info);
+#endif
     {
         std::lock_guard<std::mutex> its_lock(services_mutex_);
         services_[_service][_instance] = its_info;

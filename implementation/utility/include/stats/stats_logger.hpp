@@ -40,6 +40,11 @@
 #include <vsomeip/constants.hpp>
 #include <vsomeip/primitive_types.hpp>
 
+// Includes only needed to construct the variant for reference counting
+#include "../../../routing/include/eventgroupinfo.hpp"
+#include "../../../routing/include/serviceinfo.hpp"
+#include <vsomeip/application.hpp>
+
 #include <fmt/chrono.h>
 #include <fmt/format.h>
 
@@ -51,6 +56,32 @@
 #define WATCHPOINT_UPDATE_THRESHOLD 100
 #endif
 
+// Write some formatters for the types we're interested in
+namespace fmt {
+
+template <>
+struct formatter<vsomeip_v3::eventgroupinfo> : formatter<string_view> {
+  auto format(vsomeip_v3::eventgroupinfo const &egi,
+              format_context &ctx) const {
+    return format_to(ctx.out(), "[{:#04x}.{:#04x}.{:#04x}]", egi.get_service(),
+                     egi.get_instance(), egi.get_eventgroup());
+  }
+};
+
+template <> struct formatter<vsomeip_v3::application> : formatter<string_view> {
+  auto format(vsomeip_v3::application const &app, format_context &ctx) const {
+    return format_to(ctx.out(), "App {}", app.get_name());
+  }
+};
+
+template <> struct formatter<vsomeip_v3::serviceinfo> : formatter<string_view> {
+  auto format(vsomeip_v3::serviceinfo const &si, format_context &ctx) const {
+    return format_to(ctx.out(), "[{:#04x}.{:#04x},local={}]", si.get_service(),
+                     si.get_instance(), si.is_local());
+  }
+};
+
+} // namespace fmt
 
 namespace vsomeip_v3 {
 
@@ -235,7 +266,14 @@ class ReferencedMemoryCounter {
   };
 
 public:
-  using var_t = std::variant<ReferencedMemory<uint64_t>>;
+  // clang-format off
+  using var_t = std::variant<
+    ReferencedMemory<service_t>,
+    ReferencedMemory<eventgroupinfo>,
+    ReferencedMemory<application>,
+    ReferencedMemory<serviceinfo>
+  >;
+  // clang-format on
   using collection_t =
       std::set<var_t, ReferencedMemoryCounter::CompareReferencedMemory>;
 
