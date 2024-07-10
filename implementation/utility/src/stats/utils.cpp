@@ -13,33 +13,32 @@
 // the written authorization of Ford Motor Company.
 //
 
-#pragma once
+#ifdef STATS_LOGGER_ON
 
 #include <cstdlib>
 #include <memory>
 #ifdef __GNUG__
 #include <cxxabi.h>
 #endif
-#include <string>
-#include <typeinfo>
+
+#include <stats/utils.hpp>
 
 namespace vsomeip_v3 {
 
-template <typename Enum>
-auto constexpr get_underlying(Enum const &value) ->
-    typename std::enable_if<std::is_enum<Enum>::value,
-                            typename std::underlying_type<Enum>::type>::type {
-  return static_cast<typename std::underlying_type<Enum>::type>(value);
-}
+auto demangle(const char *name) -> std::string {
+#ifdef __GNUG__
+  int status = -4; // some arbitrary value to eliminate the compiler warning
 
-auto demangle(const char *name) -> std::string;
+  // enable c++11 by passing the flag -std=c++11 to g++
+  std::unique_ptr<char, void (*)(void *)> res{
+      abi::__cxa_demangle(name, NULL, NULL, &status), std::free};
 
-template <class T> auto demangle() -> std::string {
-  return demangle(typeid(T).name());
-}
-
-template <class T> auto type_name(T const &t) -> std::string {
-  return demangle(typeid(t).name());
+  return (status == 0) ? res.get() : name;
+#else
+  return name;
+#endif
 }
 
 } // namespace vsomeip_v3
+
+#endif

@@ -27,7 +27,12 @@
 #include <filesystem>
 #include <map>
 #include <mutex>
+#include <set>
 #include <string>
+#include <string_view>
+#include <thread>
+#include <typeinfo>
+#include <variant>
 #include <vector>
 
 #include <boost/circular_buffer.hpp>
@@ -35,13 +40,17 @@
 #include <vsomeip/constants.hpp>
 #include <vsomeip/primitive_types.hpp>
 
+#include <fmt/chrono.h>
 #include <fmt/format.h>
+
+#include <vsomeip/internal/logger.hpp>
 
 #include <stats/utils.hpp>
 
 #ifndef WATCHPOINT_UPDATE_THRESHOLD
 #define WATCHPOINT_UPDATE_THRESHOLD 100
 #endif
+
 
 namespace vsomeip_v3 {
 
@@ -168,6 +177,101 @@ public:
   auto data() -> data_t const { return send_counter_; }
 };
 
+template <class T> class ReferencedMemory {
+public:
+  // Key used to "identify" this object.
+  using key_t = uint64_t;
+  using element_type = T;
+
+private:
+  key_t key_ = 0;
+  std::weak_ptr<T> weak_ptr_;
+
+public:
+  ReferencedMemory(std::shared_ptr<T> &smart_ptr) : weak_ptr_(smart_ptr) {
+    if (auto shared_ptr = weak_ptr_.lock()) {
+      // Use the memory address as the key.  This key should never be used as a
+      // memory address though, this is just an identifier.
+      key_ = reinterpret_cast<key_t>(shared_ptr.get());
+    } else {
+      VSOMEIP_ERROR << "Could not lock weak_ptr";
+    }
+  }
+
+  auto toString() const -> std::string {
+    if (auto shared_ptr = weak_ptr_.lock()) {
+      std::string val_str = "unformattable";
+      // TODO I don't think this is working
+      if (fmt::is_formattable<element_type>::value) {
+        val_str = fmt::format("{}", *shared_ptr);
+      }
+      return fmt::format("ReferencedMemory<{}>={} [ref count={}, addr={:#04x}]",
+                         demangle<element_type>(), val_str,
+                         shared_ptr.use_count(),
+                         reinterpret_cast<uint64_t>(shared_ptr.get()));
+    }
+    return std::string("Could not lock weak_ptr");
+  }
+
+  auto operator<<(std::ostream &os) -> std::ostream & {
+    os << toString();
+    return os;
+  }
+
+  auto key() const -> key_t { return key_; }
+
+  auto weak_ptr() const -> std::weak_ptr<T> { return weak_ptr_; }
+};
+
+class ReferencedMemoryCounter {
+  struct CompareReferencedMemory {
+    template <class T> auto operator()(T const &x, T const &y) const -> bool {
+      return std::visit(
+          [](auto &&arg_x, auto &&arg_y) -> bool {
+            return arg_x.key() < arg_y.key();
+          },
+          x, y);
+    }
+  };
+
+public:
+  using var_t = std::variant<ReferencedMemory<uint64_t>>;
+  using collection_t =
+      std::set<var_t, ReferencedMemoryCounter::CompareReferencedMemory>;
+
+private:
+  collection_t rmos_;
+  std::mutex rmo_mutex_;
+
+  std::string report_;
+
+public:
+  ReferencedMemoryCounter() = default;
+  ReferencedMemoryCounter(ReferencedMemoryCounter const &) = delete;
+  auto operator=(ReferencedMemoryCounter const &) -> ReferencedMemoryCounter & =
+                                                         delete;
+
+  auto toString() const -> std::string;
+
+  friend auto operator<<(std::ostream &os,
+                         ReferencedMemoryCounter const &rmc) -> std::ostream & {
+    os << rmc.toString();
+    return os;
+  }
+
+  auto generate_report() -> void {
+    std::lock_guard const loggerLock(rmo_mutex_);
+
+    report_ = toString();
+  }
+
+  auto report() const -> std::string { return report_; }
+
+  template <class T> auto push_back(std::shared_ptr<T> sptr) -> void {
+    std::lock_guard const loggerLock(rmo_mutex_);
+    rmos_.insert(sptr);
+  }
+};
 
 class statsLogger;
 class DeviceProperty;
@@ -318,6 +422,22 @@ public:
   void set(const std::string) override;
 };
 
+class ReferencedMemoryCounterDeviceProperty : public DeviceProperty {
+public:
+  ReferencedMemoryCounterDeviceProperty() = default;
+  ReferencedMemoryCounterDeviceProperty(
+      const ReferencedMemoryCounterDeviceProperty &) = delete;
+  ReferencedMemoryCounterDeviceProperty(
+      const ReferencedMemoryCounterDeviceProperty &&) = delete;
+  auto operator=(ReferencedMemoryCounterDeviceProperty const &)
+      -> ReferencedMemoryCounterDeviceProperty & = delete;
+  auto operator=(ReferencedMemoryCounterDeviceProperty &&)
+      -> ReferencedMemoryCounterDeviceProperty & = delete;
+  ~ReferencedMemoryCounterDeviceProperty() = default;
+
+  void set(const std::string) override;
+};
+
 class statsLogger {
 public:
   using buffer_size_t = size_t;
@@ -331,6 +451,13 @@ public:
   statsLogger(statsLogger &&) = delete;
   auto operator=(statsLogger const &) = delete;
   auto operator=(statsLogger &&) = delete;
+
+  ~statsLogger() {
+    referenced_memory_update_run_flag_ = false;
+    if (referenced_memory_update_thread_.joinable()) {
+      referenced_memory_update_thread_.join();
+    }
+  }
 
   bool isLogging() { return loggingStatus_; }
 
@@ -347,6 +474,43 @@ public:
   void log(const handler_stat &h_stat);
   void logWatchpoint(WatchpointCounter::Watchpoint, service_t, instance_t,
                      method_t, session_t, client_t, message_type_e);
+
+  template <class T> void logReferencedMemory(std::shared_ptr<T> &sptr) {
+    referenced_memory_counter_.push_back(sptr);
+
+    if (!isLogging()) {
+      return;
+    }
+
+    // Using 'joinable' as a test to see whether it has been started already
+    if (!referenced_memory_update_thread_.joinable()) {
+      referenced_memory_update_thread_ = std::thread([this]() {
+        pthread_setname_np(pthread_self(), "vsomeip_stats_ref");
+
+        while (referenced_memory_update_run_flag_) {
+
+          // Update at a frequency, but also crudely reduce the blocking time
+          for (auto i = 0; i < 100; i++) {
+            std::this_thread::sleep_for(referenced_memory_update_freq_ / 100.0);
+            if (false == referenced_memory_update_run_flag_) {
+              break;
+            }
+          }
+
+          // Generate a report before locking loggerMutex_
+          referenced_memory_counter_.generate_report();
+
+          {
+            // Prep a snap shot of the referenced memory counter
+            std::lock_guard const loggerLock(loggerMutex_);
+
+            referenced_memory_snapshot();
+          }
+        }
+        VSOMEIP_DEBUG << "Exiting referenced memory update thread";
+      });
+    }
+  }
 
   void dumpStats(void);
 
@@ -373,6 +537,7 @@ private:
   Histogram *pHistogram_ = nullptr;
   Event *pEvent_ = nullptr;
   WatchpointCounterDeviceProperty *pWatchPoints_ = nullptr;
+  ReferencedMemoryCounterDeviceProperty *pReferencedMemory_ = nullptr;
 
   handler_stat max_handler;
   std::unique_ptr<c_buffer> dump_buffer_;
@@ -381,6 +546,11 @@ private:
   std::string histogram_axis_;
 
   WatchpointCounter watchpointCounter_;
+
+  ReferencedMemoryCounter referenced_memory_counter_;
+  std::thread referenced_memory_update_thread_;
+  std::atomic<bool> referenced_memory_update_run_flag_ = true;
+  std::chrono::seconds referenced_memory_update_freq_ = std::chrono::seconds(5);
 
   size_t const upper_limit_ = 0;
   size_t const bucket_size_ = 0;
@@ -391,9 +561,11 @@ private:
 
   void turnLoggerOn();
   void turnLoggerOff();
+  void turnLoggerOff_unlocked();
   void histogram_snapshot();
   void events_above_threshold_snapshot();
   void watchpoint_snapshot();
+  void referenced_memory_snapshot();
 };
 
 #ifndef __QNX__
@@ -421,6 +593,10 @@ public:
                             session_id, client_id, message_type);
   }
 
+  template <class T> void logReferencedMemory(std::shared_ptr<T> &sptr) {
+    pLogger_->logReferencedMemory(sptr);
+  }
+
   void start(std::string app_name, size_t _storageSize = 60000,
              std::chrono::milliseconds _durationThreshold =
                  std::chrono::milliseconds(4));
@@ -443,6 +619,7 @@ private:
   Histogram dpHistogram_;
   Event event_;
   WatchpointCounterDeviceProperty dpWatchpointCounter_;
+  ReferencedMemoryCounterDeviceProperty dpReferencedMemoryCounter_;
 
   std::shared_ptr<statsLogger> pLogger_;
 
@@ -468,4 +645,4 @@ private:
 } // namespace vsomeip_v3
 
 #endif // STATSLOGGER_HPP
-// #endif // STATS_LOGGER_ON
+#endif // STATS_LOGGER_ON

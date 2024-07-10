@@ -166,6 +166,32 @@ auto WatchpointCounter::DatumKey::toString() const -> std::string {
   return sstr.str();
 }
 
+auto ReferencedMemoryCounter::toString() const -> std::string {
+#ifndef __ANDROID__
+  auto outp = fmt::format("Last update: {}.  Tracking {} referenced elements:\n", std::chrono::system_clock::now(), rmos_.size());
+#else
+  // None of this is built for AOSP right now.
+  std::string outp;
+#endif
+  for (auto &var : rmos_) {
+    try {
+      std::visit(
+          [&outp](auto &&arg) {
+            if (auto strong = arg.weak_ptr().lock()) {
+              outp += fmt::format("  {}\n", arg.toString());
+            } else {
+              outp += fmt::format("  Could not lock weak_ptr\n");
+            }
+          },
+          var);
+    } catch (const std::bad_variant_access &ex) {
+      VSOMEIP_ERROR << "stats_logger:" << __LINE__
+                    << " Could not access variant: " << ex.what() << '\n';
+    }
+  }
+  return outp;
+}
+
 std::string handler_stat::toString(void) {
   using clock_t = std::chrono::system_clock;
 
@@ -306,6 +332,23 @@ void WatchpointCounterDeviceProperty::set(std::string const v) {
 #endif
 }
 
+void ReferencedMemoryCounterDeviceProperty::set(std::string const v) {
+  if (!pLogger_) {
+    formattedPropVal_ = "reference memory logger is unavailable\n";
+    return;
+  }
+  if (!pLogger_->isLogging()) {
+    formattedPropVal_ = "reference memory watches are disabled\n";
+  } else {
+    formattedPropVal_ = v;
+  }
+
+#ifdef __QNX__
+  // Update nbytes, consumed by io_read
+  devAttr_.attr.nbytes = static_cast<long>(formattedPropVal_.size());
+#endif
+}
+
 void statsLogger::dumpStats(void) {
   const std::lock_guard<std::mutex> loggerLock(loggerMutex_);
 
@@ -393,6 +436,21 @@ void statsLogger::watchpoint_snapshot() {
   }
 }
 
+void statsLogger::referenced_memory_snapshot() {
+  if (!pReferencedMemory_) {
+    return;
+  }
+
+  std::ostringstream sstr;
+  sstr << referenced_memory_counter_.report();
+  try {
+    pReferencedMemory_->set(sstr.str());
+  } catch (std::exception const &e) {
+    VSOMEIP_ERROR << "[vsomeip_stats]: " << __func__ << ": " << e.what();
+    pReferencedMemory_->set("processing error");
+  }
+}
+
 void statsLogger::turnLoggerOn() {
   const std::lock_guard<std::mutex> loggerLock(loggerMutex_);
   try {
@@ -422,6 +480,10 @@ void statsLogger::turnLoggerOn() {
 
 void statsLogger::turnLoggerOff() {
   const std::lock_guard<std::mutex> loggerLock(loggerMutex_);
+  turnLoggerOff_unlocked();
+}
+
+void statsLogger::turnLoggerOff_unlocked() {
   loggingStatus_ = false;
 }
 
@@ -443,7 +505,7 @@ void statsLogger::log(const handler_stat &h_stat) {
       max_handler = h_stat;
     }
   } catch (const std::exception &e) {
-    loggingStatus_ = false;
+    turnLoggerOff_unlocked();
     VSOMEIP_ERROR << "[vsomeip_stats]: " << __func__ << ": " << e.what();
     return;
   }
@@ -514,6 +576,7 @@ void statsResourceManager::start(std::string app_name, size_t _storageSize,
   pLogger_->pEventsAboveThreshold_ = &eventsAboveThreshold;
   pLogger_->pHistogram_ = &dpHistogram_;
   pLogger_->pWatchPoints_ = &dpWatchpointCounter_;
+  pLogger_->pReferencedMemory_ = &dpReferencedMemoryCounter_;
 
   // Correctly format init values for runResourceManagerThread function
   auto const formattedInitDpEnableVal =
@@ -882,6 +945,32 @@ void statsResourceManager::init(
                        &ioFuncs_,      // I/O routines
                        reinterpret_cast<RESMGR_HANDLE_T *>(
                            dpWatchpointCounter_.getDevAttrPtr()) // Handle
+    );
+    if (id == -1) {
+      VSOMEIP_ERROR << "[vsomeip_stats]: resmgr_attach failed:"
+                    << std::strerror(errno) << ". Device property name → "
+                    << path;
+      return;
+    }
+  }
+
+  {
+    int id = -1;
+    auto txt = std::string("No smart pointers yet");
+    dpReferencedMemoryCounter_.initialize(
+        static_cast<long>(txt.size()), &dpReferencedMemoryCounter_, pLogger_);
+    dpReferencedMemoryCounter_.set(txt);
+
+    auto const path = base_path / "references";
+    id = resmgr_attach(pDispatch,      // Dispatch handle
+                       &resmgrAttr_,   // Resource manager attrs
+                       path.c_str(),   // Device name
+                       _FTYPE_ANY,     // Open type
+                       0,              // Flags
+                       &connectFuncs_, // Connect routines
+                       &ioFuncs_,      // I/O routines
+                       reinterpret_cast<RESMGR_HANDLE_T *>(
+                           dpReferencedMemoryCounter_.getDevAttrPtr()) // Handle
     );
     if (id == -1) {
       VSOMEIP_ERROR << "[vsomeip_stats]: resmgr_attach failed:"
