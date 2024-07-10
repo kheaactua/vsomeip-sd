@@ -2,7 +2,7 @@
 // CONFIDENTIAL - FORD MOTOR COMPANY
 //
 // This is an unpublished work, which is a trade secret, created in
-// 2023.  Ford Motor Company owns all rights to this work and intends
+// 2023-2024.  Ford Motor Company owns all rights to this work and intends
 // to maintain it in confidence to preserve its trade secret status.
 // Ford Motor Company reserves the right to protect this work as an
 // unpublished copyrighted work in the event of an inadvertent or
@@ -34,6 +34,10 @@
 
 #include <vsomeip/constants.hpp>
 #include <vsomeip/primitive_types.hpp>
+
+#include <fmt/format.h>
+
+#include <stats/utils.hpp>
 
 #ifndef WATCHPOINT_UPDATE_THRESHOLD
 #define WATCHPOINT_UPDATE_THRESHOLD 100
@@ -70,13 +74,6 @@ struct handler_stat {
 
 using c_buffer = boost::circular_buffer<handler_stat>;
 using histogram_t = std::vector<unsigned long>;
-
-template <typename Enum>
-auto constexpr get_underlying(Enum const &value) ->
-    typename std::enable_if<std::is_enum<Enum>::value,
-                            typename std::underlying_type<Enum>::type>::type {
-  return static_cast<typename std::underlying_type<Enum>::type>(value);
-}
 
 inline constexpr uint16_t ANY_SESSION = std::numeric_limits<session_t>::max();
 
@@ -171,6 +168,7 @@ public:
   auto data() -> data_t const { return send_counter_; }
 };
 
+
 class statsLogger;
 class DeviceProperty;
 class statsResourceManager;
@@ -260,8 +258,8 @@ public:
   EventsAboveThreshold() = default;
   EventsAboveThreshold(const EventsAboveThreshold &) = delete;
   EventsAboveThreshold(const EventsAboveThreshold &&) = delete;
-  auto operator=(EventsAboveThreshold const &)
-      -> EventsAboveThreshold & = delete;
+  auto
+  operator=(EventsAboveThreshold const &) -> EventsAboveThreshold & = delete;
   auto operator=(EventsAboveThreshold &&) -> EventsAboveThreshold & = delete;
   ~EventsAboveThreshold() = default;
 
@@ -356,7 +354,7 @@ private:
   std::atomic_bool loggingStatus_ = false;
   std::chrono::milliseconds threshold_ = std::chrono::milliseconds(500);
   buffer_size_t bufferSize_ = 5000;
-  std::chrono::milliseconds watchpoint_update_interval_ =
+  std::chrono::milliseconds const watchpoint_update_interval_ =
       std::chrono::milliseconds(200);
 
   std::chrono::steady_clock::time_point last_update_watchpoints_{
@@ -470,4 +468,4 @@ private:
 } // namespace vsomeip_v3
 
 #endif // STATSLOGGER_HPP
-#endif // STATS_LOGGER_ON
+// #endif // STATS_LOGGER_ON

@@ -2,7 +2,7 @@
 // CONFIDENTIAL - FORD MOTOR COMPANY
 //
 // This is an unpublished work, which is a trade secret, created in
-// 2023.  Ford Motor Company owns all rights to this work and intends
+// 2024.  Ford Motor Company owns all rights to this work and intends
 // to maintain it in confidence to preserve its trade secret status.
 // Ford Motor Company reserves the right to protect this work as an
 // unpublished copyrighted work in the event of an inadvertent or
@@ -33,7 +33,7 @@
 
 #include <vsomeip/internal/logger.hpp>
 
-#include "../include/stats_logger.hpp"
+#include <stats/stats_logger.hpp>
 
 extern char *__progname;
 
@@ -344,10 +344,11 @@ void statsLogger::histogram_snapshot(void) {
       i = 0;
     }
 
+    using n_buckets_t = decltype(number_of_buckets_);
     for (auto const i : *dump_buffer_) {
-      auto bucket = static_cast<decltype(number_of_buckets_)>(std::floor(
-          static_cast<decltype(number_of_buckets_)>(i.duration.count()) /
-          bucket_size_));
+      auto const duration_count = static_cast<n_buckets_t>(i.duration.count());
+      auto bucket =
+          static_cast<n_buckets_t>(std::floor(duration_count / bucket_size_));
       if (bucket > number_of_buckets_) {
         (*histogram_)[overflow_bucket_]++;
       } else {
@@ -376,15 +377,13 @@ void statsLogger::histogram_snapshot(void) {
 }
 
 void statsLogger::watchpoint_snapshot() {
-  if (!pWatchPoints_ || !dump_buffer_) {
-    pWatchPoints_->set("processing error");
+  if (!pWatchPoints_) {
     return;
   }
 
   std::ostringstream sstr;
   for (auto const &[key, val] : watchpointCounter_.data()) {
     sstr << key.toString() << ", count=" << std::dec << val << "\n";
-    ;
   }
   try {
     pWatchPoints_->set(sstr.str());

@@ -19,7 +19,7 @@
 #include "../../utility/include/byteorder.hpp"
 #include "../../utility/include/utility.hpp"
 #ifdef STATS_LOGGER_ON
-#include "../../utility/include/stats_logger.hpp"
+#include <stats/stats_logger.hpp>
 #endif
 
 namespace vsomeip_v3 {

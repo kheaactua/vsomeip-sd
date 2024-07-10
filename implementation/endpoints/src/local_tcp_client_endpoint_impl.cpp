@@ -18,7 +18,7 @@
 #include "../../routing/include/routing_host.hpp"
 
 #ifdef STATS_LOGGER_ON
-#include "../../utility/include/stats_logger.hpp"
+#include <stats/stats_logger.hpp>
 #endif
 
 namespace vsomeip_v3 {

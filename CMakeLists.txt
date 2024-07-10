@@ -301,6 +301,11 @@ option(HAS_BUILDIN_CONFIG "Support buildin configuration")
 # Threads
 find_package(Threads REQUIRED)
 
+if (VSOMEIP_STATS_LOGGER)
+  find_package(fmt REQUIRED)
+  target_link_libraries(OS_INTERFACE INTERFACE fmt::fmt)
+endif()
+
 if(NOT Boost_FOUND)
   message(FATAL_ERROR "Boost was not found!")
 endif()
@@ -400,7 +405,7 @@ endif()
 # ######################################################################################################################
 file(GLOB vsomeip3_cfg_SRC "implementation/configuration/src/*.cpp")
 list(SORT vsomeip3_cfg_SRC)
-set_source_files_properties(implementation/utility/src/stats_logger.cpp PROPERTIES COMPILE_FLAGS -Wno-unused-parameter)
+set_source_files_properties(implementation/utility/src/stats/stats_logger.cpp PROPERTIES COMPILE_FLAGS -Wno-unused-parameter)
 if(VSOMEIP_ENABLE_MULTIPLE_ROUTING_MANAGERS EQUAL 0)
   add_library(vsomeip3-cfg SHARED)
   target_sources(vsomeip3-cfg PRIVATE ${vsomeip3_cfg_SRC})
@@ -437,6 +442,7 @@ file(
   "implementation/runtime/src/*.cpp"
   "implementation/security/src/*.cpp"
   "implementation/utility/src/*.cpp"
+  "implementation/utility/src/stats/*.cpp"
 )
 if(VSOMEIP_ENABLE_MULTIPLE_ROUTING_MANAGERS EQUAL 1)
   list(APPEND vsomeip3_SRC "implementation/configuration/src/configuration_impl.cpp")
@@ -480,6 +486,7 @@ if(HAS_BUILDIN_CONFIG)
 endif()
 if(VSOMEIP_STATS_LOGGER)
   target_compile_definitions(vsomeip3 PUBLIC STATS_LOGGER_ON)
+  target_include_directories(vsomeip3 PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/implementation/utility/include>)
 endif()
 if(VSOMEIP_STATS_LOGGER_USE_WHITE_LIST)
   target_compile_definitions(vsomeip3 PUBLIC STATS_USE_WHITE_LIST)
