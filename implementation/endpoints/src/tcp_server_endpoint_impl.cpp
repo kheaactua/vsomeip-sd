@@ -662,7 +662,10 @@ void tcp_server_endpoint_impl::connection::receive_cbk(
                     if (needs_forwarding) {
                         if (utility::is_request(
                                 recv_buffer_[its_iteration_gap
-                                        + VSOMEIP_MESSAGE_TYPE_POS])) {
+                                        + VSOMEIP_MESSAGE_TYPE_POS])
+                            && !utility::is_request_no_return(
+                                recv_buffer_[its_iteration_gap
+                                        + VSOMEIP_MESSAGE_TYPE_POS]) ) {
                             const client_t its_client = VSOMEIP_BYTES_TO_WORD(
                                     recv_buffer_[its_iteration_gap + VSOMEIP_CLIENT_POS_MIN],
                                     recv_buffer_[its_iteration_gap + VSOMEIP_CLIENT_POS_MAX]);
