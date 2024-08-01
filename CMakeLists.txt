@@ -176,15 +176,19 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
       i386:x86-64
   )
 
-  # For backtraces to work, define the following in your toolchain:
-  # -DBOOST_STACKTRACE_BACKTRACE_INCLUDE_FILE="/usr/lib/gcc/x86_64-linux-gnu/11/include/backtrace.h" (this is hardcoded
-  # here as it does not necessarily represent yours system)
-  target_compile_definitions(
-    STACKTRACE_INTERFACE INTERFACE -DBOOST_STACKTRACE_USE_BACKTRACE -DBOOST_STACKTRACE_USE_ADDR2LINE
-  )
-  target_link_libraries(
-    STACKTRACE_INTERFACE INTERFACE Boost::stacktrace_addr2line Boost::stacktrace_backtrace backtrace
-  )
+  if (TARGET Boost::stacktrace_addr2line AND TARGET Boost::stacktrace_backtrace)
+    # For backtraces to work, define the following in your toolchain:
+    # -DBOOST_STACKTRACE_BACKTRACE_INCLUDE_FILE="/usr/lib/gcc/x86_64-linux-gnu/11/include/backtrace.h" (this is hardcoded
+    # here as it does not necessarily represent yours system)
+    target_compile_definitions(
+      STACKTRACE_INTERFACE INTERFACE -DBOOST_STACKTRACE_USE_BACKTRACE -DBOOST_STACKTRACE_USE_ADDR2LINE
+    )
+    target_link_libraries(
+      STACKTRACE_INTERFACE INTERFACE Boost::stacktrace_addr2line Boost::stacktrace_backtrace backtrace
+    )
+  else()
+    message(STATUS "Boost::stacktrace_addr2line and/or Boost::stacktrace_backtrace not found, stacktrace disabled")
+  endif()
 endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
@@ -231,11 +235,15 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "QNX")
       ${CMAKE_SYSTEM_PROCESSOR}
   )
 
-  # Boost::stacktrace_addr2line is not available on QNX libbacktrace.so is not installed on target by default
-  target_link_libraries(
-    STACKTRACE_INTERFACE INTERFACE Boost::stacktrace_basic
-                                   # backtrace
-  )
+  if (TARGET Boost::stacktrace_basic)
+    # Boost::stacktrace_addr2line is not available on QNX libbacktrace.so is not installed on target by default
+    target_link_libraries(
+      STACKTRACE_INTERFACE INTERFACE Boost::stacktrace_basic
+                                     # backtrace
+    )
+  else()
+    message(STATUS "Boost::stacktrace_basic not found, stacktrace disabled")
+  endif()
 endif()
 
 if(${OS})
