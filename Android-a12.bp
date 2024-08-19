@@ -51,7 +51,7 @@ filegroup {
 
 cc_defaults {
     name: "vsomeip_defaults",
-    cpp_std: "c++17",
+    cpp_std: "gnu++17",
 
     cppflags: [
         "-fexceptions",
