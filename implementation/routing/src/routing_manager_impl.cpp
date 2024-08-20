@@ -2256,7 +2256,7 @@ services_t routing_manager_impl::get_offered_services() const {
                     its_services[s.first][i.first] = i.second;
                 }
             } else {
-                VSOMEIP_ERROR << __func__ << "Found instance with NULL ServiceInfo ["
+                VSOMEIP_ERROR << __func__ << ": Found instance with NULL ServiceInfo ["
                               << std::hex << std::setw(4) << std::setfill('0') << s.first
                               << ":" << i.first <<"]";
             }

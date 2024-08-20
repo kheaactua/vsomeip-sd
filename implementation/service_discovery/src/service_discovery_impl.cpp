@@ -82,7 +82,7 @@ service_discovery_impl::service_discovery_impl(
       find_debounce_time_(VSOMEIP_SD_DEFAULT_FIND_DEBOUNCE_TIME),
       find_debounce_timer_(_host->get_io()),
       main_phase_timer_(_host->get_io()),
-      is_suspended_(true), // Start suspended: this is different than upstream as we start before a network interface is available
+      is_suspended_(false),
       is_diagnosis_(false),
       last_msg_received_timer_(_host->get_io()),
       last_msg_received_timer_timeout_(VSOMEIP_SD_DEFAULT_CYCLIC_OFFER_DELAY +
