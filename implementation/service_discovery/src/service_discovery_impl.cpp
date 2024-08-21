@@ -237,10 +237,14 @@ void service_discovery_impl::do_start_sd(std::function<void(void)> on_complete, 
                 i.second->set_sent_counter(0);
             }
         }
+
+        // rejoin multicast group
         if (endpoint_ && !reliable_) {
             // rejoin multicast group
-            dynamic_cast<udp_server_endpoint_impl*>(
-                    endpoint_.get())->join(sd_multicast_);
+            auto its_server_endpoint
+                = std::dynamic_pointer_cast<udp_server_endpoint_impl>(endpoint_);
+            if (its_server_endpoint)
+                its_server_endpoint->join(sd_multicast_);
         }
     }
     is_suspended_ = false;
@@ -1140,8 +1144,7 @@ service_discovery_impl::insert_subscription_ack(
 
     entry_data_t its_data;
 
-    std::shared_ptr<eventgroupentry_impl> its_entry
-        = std::make_shared<eventgroupentry_impl>();
+    auto its_entry = std::make_shared<eventgroupentry_impl>();
     its_entry->set_type(entry_type_e::SUBSCRIBE_EVENTGROUP_ACK);
     its_entry->set_service(its_service);
     its_entry->set_instance(its_instance);
@@ -1445,7 +1448,7 @@ service_discovery_impl::process_serviceentry(
         const std::vector<std::shared_ptr<option_impl> > &_options,
         bool _unicast_flag,
         std::vector<std::shared_ptr<message_impl> > &_resubscribes,
-        bool _received_via_mcast,
+        bool _received_via_multicast,
         const sd_acceptance_state_t& _sd_ac_state) {
 
     // Read service info from entry
@@ -1532,7 +1535,7 @@ service_discovery_impl::process_serviceentry(
                         its_major, its_minor, its_ttl,
                         its_reliable_address, its_reliable_port,
                         its_unreliable_address, its_unreliable_port, _resubscribes,
-                        _received_via_mcast, _sd_ac_state);
+                        _received_via_multicast, _sd_ac_state);
                 break;
             case entry_type_e::UNKNOWN:
             default:
@@ -1564,7 +1567,7 @@ service_discovery_impl::process_offerservice_serviceentry(
         const boost::asio::ip::address &_unreliable_address,
         uint16_t _unreliable_port,
         std::vector<std::shared_ptr<message_impl> > &_resubscribes,
-        bool _received_via_mcast, const sd_acceptance_state_t& _sd_ac_state) {
+        bool _received_via_multicast, const sd_acceptance_state_t& _sd_ac_state) {
     std::shared_ptr < runtime > its_runtime = runtime_.lock();
     if (!its_runtime)
         return;
@@ -1688,7 +1691,7 @@ service_discovery_impl::process_offerservice_serviceentry(
     }
 
     // No need to resubscribe for unicast offers
-    if (_received_via_mcast) {
+    if (_received_via_multicast) {
         auto found_service = subscribed_.find(_service);
         if (found_service != subscribed_.end()) {
             auto found_instance = found_service->second.find(_instance);
@@ -1697,32 +1700,33 @@ service_discovery_impl::process_offerservice_serviceentry(
                     for (const auto& its_eventgroup : found_instance->second) {
                         auto its_subscription = its_eventgroup.second;
                         std::shared_ptr<endpoint> its_reliable, its_unreliable;
-                        get_subscription_endpoints(_service, _instance,
-                                its_reliable, its_unreliable);
+                        get_subscription_endpoints(_service, _instance, its_reliable,
+                                                   its_unreliable);
                         its_subscription->set_endpoint(its_reliable, true);
                         its_subscription->set_endpoint(its_unreliable, false);
                         for (const auto& its_client : its_subscription->get_clients()) {
                             if (its_subscription->get_state(its_client)
-                                    == subscription_state_e::ST_ACKNOWLEDGED) {
+                                == subscription_state_e::ST_ACKNOWLEDGED) {
                                 its_subscription->set_state(its_client,
-                                        subscription_state_e::ST_RESUBSCRIBING);
+                                                            subscription_state_e::ST_RESUBSCRIBING);
                             } else {
-                                its_subscription->set_state(its_client,
+                                its_subscription->set_state(
+                                        its_client,
                                         subscription_state_e::ST_RESUBSCRIBING_NOT_ACKNOWLEDGED);
                             }
                         }
-                        const reliability_type_e its_reliability =
-                                get_eventgroup_reliability(_service, _instance,
-                                        its_eventgroup.first, its_subscription);
+                        const reliability_type_e its_reliability = get_eventgroup_reliability(
+                                _service, _instance, its_eventgroup.first, its_subscription);
 
-                        auto its_data = create_eventgroup_entry(_service, _instance,
-                                its_eventgroup.first, its_subscription, its_reliability);
+                        auto its_data =
+                                create_eventgroup_entry(_service, _instance, its_eventgroup.first,
+                                                        its_subscription, its_reliability);
                         if (its_data.entry_) {
                             add_entry_data(_resubscribes, its_data);
                         }
                         for (const auto its_client : its_subscription->get_clients()) {
                             its_subscription->set_state(its_client,
-                                    subscription_state_e::ST_NOT_ACKNOWLEDGED);
+                                                        subscription_state_e::ST_NOT_ACKNOWLEDGED);
                         }
                     }
                 }
@@ -3363,8 +3367,7 @@ bool
 service_discovery_impl::send_collected_stop_offers(const std::vector<std::shared_ptr<serviceinfo>> &_infos) {
 
     std::vector<std::shared_ptr<message_impl> > its_messages;
-    std::shared_ptr<message_impl> its_current_message(
-            std::make_shared<message_impl>());
+    auto its_current_message = std::make_shared<message_impl>();
     its_messages.push_back(its_current_message);
 
     // pack multiple stop offers together
