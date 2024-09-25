@@ -194,6 +194,7 @@ public:
     VSOMEIP_EXPORT int32_t get_sd_repetitions_base_delay() const;
     VSOMEIP_EXPORT uint8_t get_sd_repetitions_max() const;
     VSOMEIP_EXPORT ttl_t get_sd_ttl() const;
+    VSOMEIP_EXPORT multicast_ttl_t get_multicast_ttl() const;
     VSOMEIP_EXPORT int32_t get_sd_cyclic_offer_delay() const;
     VSOMEIP_EXPORT int32_t get_sd_request_response_delay() const;
     VSOMEIP_EXPORT std::uint32_t get_sd_offer_debounce_time() const;
@@ -538,6 +539,7 @@ protected:
     int32_t sd_repetitions_base_delay_;
     uint8_t sd_repetitions_max_;
     ttl_t sd_ttl_;
+    multicast_ttl_t sd_multicast_ttl_;
     int32_t sd_cyclic_offer_delay_;
     int32_t sd_request_response_delay_;
     std::uint32_t sd_offer_debounce_time_;
@@ -584,6 +586,7 @@ protected:
         ET_SERVICE_DISCOVERY_REPETITION_BASE_DELAY,
         ET_SERVICE_DISCOVERY_REPETITION_MAX,
         ET_SERVICE_DISCOVERY_TTL,
+        ET_SERVICE_DISCOVERY_MULTICAST_TTL,
         ET_SERVICE_DISCOVERY_CYCLIC_OFFER_DELAY,
         ET_SERVICE_DISCOVERY_REQUEST_RESPONSE_DELAY,
         ET_WATCHDOG_ENABLE,
@@ -611,7 +614,7 @@ protected:
         ET_PARTITIONS,
         ET_SECURITY_AUDIT_MODE,
         ET_SECURITY_REMOTE_ACCESS,
-        ET_MAX = 48
+        ET_MAX = 49
     };
 
     bool is_configured_[ET_MAX];

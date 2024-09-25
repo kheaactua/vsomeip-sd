@@ -142,6 +142,7 @@ configuration_impl::configuration_impl(const std::string &_path)
       sd_repetitions_base_delay_(VSOMEIP_SD_DEFAULT_REPETITIONS_BASE_DELAY),
       sd_repetitions_max_(VSOMEIP_SD_DEFAULT_REPETITIONS_MAX),
       sd_ttl_(VSOMEIP_SD_DEFAULT_TTL),
+      sd_multicast_ttl_(VSOMEIP_SD_DEFAULT_MULTICAST_TTL),
       sd_cyclic_offer_delay_(VSOMEIP_SD_DEFAULT_CYCLIC_OFFER_DELAY),
       sd_request_response_delay_(VSOMEIP_SD_DEFAULT_REQUEST_RESPONSE_DELAY),
       sd_offer_debounce_time_(VSOMEIP_SD_DEFAULT_OFFER_DEBOUNCE_TIME),
@@ -259,6 +260,7 @@ configuration_impl::configuration_impl(const configuration_impl &_other)
     sd_repetitions_base_delay_= _other.sd_repetitions_base_delay_;
     sd_repetitions_max_ = _other.sd_repetitions_max_;
     sd_ttl_ = _other.sd_ttl_;
+    sd_multicast_ttl_ = _other.sd_multicast_ttl_;
     sd_cyclic_offer_delay_= _other.sd_cyclic_offer_delay_;
     sd_request_response_delay_= _other.sd_request_response_delay_;
     sd_offer_debounce_time_ = _other.sd_offer_debounce_time_;
@@ -1944,6 +1946,21 @@ void configuration_impl::load_service_discovery(
                         sd_ttl_ = VSOMEIP_SD_DEFAULT_TTL;
                     }
                     else is_configured_[ET_SERVICE_DISCOVERY_TTL] = true;
+                }
+            } else if (its_key == "multicast_ttl") {
+                if (is_configured_[ET_SERVICE_DISCOVERY_MULTICAST_TTL]) {
+                    VSOMEIP_WARNING << "Multiple definitions for service_discovery.multicast_ttl."
+                            " Ignoring definition from " << _element.name_;
+                } else {
+                    its_converter << its_value;
+                    its_converter >> sd_multicast_ttl_;
+                    // valid TTL should be above 0, the default is 1 (do not forward)
+                    if (sd_multicast_ttl_ <= 0) {
+                        VSOMEIP_WARNING << "TTL<=0 is not allowed. Using default ("
+                                << std::dec << VSOMEIP_SD_DEFAULT_MULTICAST_TTL << ")";
+                        sd_multicast_ttl_ = VSOMEIP_SD_DEFAULT_MULTICAST_TTL;
+                    }
+                    else is_configured_[ET_SERVICE_DISCOVERY_MULTICAST_TTL] = true;
                 }
             } else if (its_key == "cyclic_offer_delay") {
                 if (is_configured_[ET_SERVICE_DISCOVERY_CYCLIC_OFFER_DELAY]) {
@@ -3845,6 +3862,10 @@ uint8_t configuration_impl::get_sd_repetitions_max() const {
 
 ttl_t configuration_impl::get_sd_ttl() const {
     return sd_ttl_;
+}
+
+multicast_ttl_t configuration_impl::get_multicast_ttl() const {
+    return sd_multicast_ttl_;
 }
 
 int32_t configuration_impl::get_sd_cyclic_offer_delay() const {

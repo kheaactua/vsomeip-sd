@@ -136,6 +136,13 @@ udp_server_endpoint_impl::udp_server_endpoint_impl(
                 << " (" << its_udp_recv_buffer_size << ") local port:"
                 << std::dec << local_port_;
     }
+
+    auto multicast_hops = _configuration->get_multicast_ttl();
+    VSOMEIP_INFO << "udp_server_endpoint_impl multicast::hops(" << multicast_hops << ")";
+    unicast_socket_.set_option(boost::asio::ip::multicast::hops(multicast_hops), ec );
+    if (ec) {
+        VSOMEIP_ERROR << __func__ << "udp_server_endpoint_impl set multicast TTL option failed (" << ec.message() << ")";
+    }
 }
 
 udp_server_endpoint_impl::~udp_server_endpoint_impl() {

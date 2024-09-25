@@ -39,6 +39,8 @@
 
 namespace vsomeip_v3 {
 
+using multicast_ttl_t = uint16_t ;
+
 class event;
 struct debounce_filter_impl_t;
 
@@ -176,6 +178,7 @@ public:
     virtual int32_t get_sd_repetitions_base_delay() const = 0;
     virtual uint8_t get_sd_repetitions_max() const = 0;
     virtual ttl_t get_sd_ttl() const = 0;
+    virtual multicast_ttl_t get_multicast_ttl() const = 0;
     virtual int32_t get_sd_cyclic_offer_delay() const = 0;
     virtual int32_t get_sd_request_response_delay() const = 0;
     virtual std::uint32_t get_sd_offer_debounce_time() const = 0;
