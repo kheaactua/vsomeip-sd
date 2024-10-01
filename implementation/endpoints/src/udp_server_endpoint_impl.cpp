@@ -535,14 +535,20 @@ void udp_server_endpoint_impl::on_multicast_received(
     } else if (_error != boost::asio::error::operation_aborted) {
 
         if (multicast_remote_.address() != local_.address()) {
+#ifndef VSOMEIP_ALLOW_MULTICAST_ROUTING
             if (is_same_subnet(multicast_remote_.address())) {
+#endif
                 auto find_joined = joined_.find(_destination.to_string());
                 if (find_joined != joined_.end())
                     find_joined->second = true;
 
                 on_message_received(_error, _bytes, true, multicast_remote_,
                                     multicast_recv_buffer_);
+#ifndef VSOMEIP_ALLOW_MULTICAST_ROUTING
+            } else {
+                VSOMEIP_WARNING << "Dropping " << _bytes << " multicast bytes from different subnet " << multicast_remote_.address().to_string();
             }
+#endif
         } else if (receive_own_multicast_messages_ && on_sent_multicast_received_) {
             on_sent_multicast_received_(&multicast_recv_buffer_[0], static_cast<uint32_t>(_bytes),
                                         boost::asio::ip::address());

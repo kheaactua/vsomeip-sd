@@ -2932,11 +2932,13 @@ service_discovery_impl::check_ipv4_address(
                 endpoint_address[1], endpoint_address[2], endpoint_address[3]);
         const std::uint32_t netmask = VSOMEIP_BYTES_TO_LONG(its_netmask[0],
                 its_netmask[1], its_netmask[2], its_netmask[3]);
+#ifndef VSOMEIP_ALLOW_MULTICAST_ROUTING
         if ((self & netmask) != (remote & netmask)) {
             VSOMEIP_ERROR<< "Subscriber's IP isn't in the same subnet as host's IP: "
                     << its_address;
             is_valid = false;
         }
+#endif
     }
     return is_valid;
 }

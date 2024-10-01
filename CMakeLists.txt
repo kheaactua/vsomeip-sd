@@ -63,6 +63,8 @@ if(HAS_BUILDIN_CONFIG)
   set(OBJ_BINARY__VSOMEIP_CONFIG_TAG "_binary__vsomeip_config")
 endif()
 
+option(ALLOW_MULTICAST_ROUTING "Enable multicast routing, otherwise messages from other subnets are ignored" Off)
+
 if(WIN32 AND NOT CYGWIN)
   set(DEF_INSTALL_CMAKE_DIR CMake)
 else()
@@ -497,6 +499,7 @@ target_compile_definitions(
           $<$<BOOL:${ENABLE_MULTIPLE_ROUTING_MANAGERS}>:VSOMEIP_ENABLE_MULTIPLE_ROUTING_MANAGERS>
           $<$<BOOL:${HAS_BUILDIN_CONFIG}>:VSOMEIP_BUILDIN_CONFIGURATION>
           $<$<BOOL:${ENABLE_DEFAULT_EVENT_CACHING}>:VSOMEIP_ENABLE_DEFAULT_EVENT_CACHING>
+          $<$<BOOL:${ALLOW_MULTICAST_ROUTING}>:VSOMEIP_ALLOW_MULTICAST_ROUTING>
 )
 target_include_directories(vsomeip3 SYSTEM PUBLIC $<BUILD_INTERFACE:${Boost_INCLUDE_DIRS}>)
 target_link_libraries(vsomeip3 PRIVATE STACKTRACE_INTERFACE)
@@ -570,7 +573,10 @@ set_target_properties(
   VERSION ${VSOMEIP_VERSION}
   SOVERSION ${VSOMEIP_MAJOR_VERSION}
 )
-target_compile_definitions(vsomeip3-sd PUBLIC $<$<CXX_COMPILER_ID:MSVC>:VSOMEIP_DLL_COMPILATION_PLUGIN>)
+target_compile_definitions(vsomeip3-sd PUBLIC
+  $<$<CXX_COMPILER_ID:MSVC>:VSOMEIP_DLL_COMPILATION_PLUGIN>
+  $<$<BOOL:${ALLOW_MULTICAST_ROUTING}>:VSOMEIP_ALLOW_MULTICAST_ROUTING>
+)
 target_link_libraries(
   vsomeip3-sd
   PUBLIC vsomeip3
