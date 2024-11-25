@@ -296,8 +296,9 @@ endif()
 # Suppress deprecation warnings for vSomeIP interfaces
 add_definitions(-DVSOMEIP_INTERNAL_SUPPRESS_DEPRECATED)
 
-# Enable ability for built-in configuration (also must enable with env. var. VSOMEIP_LEGACY_CONFIGURATION)
-option(HAS_BUILDIN_CONFIG "Support buildin configuration")
+# Enable ability for built-in configuration (also must enable with env. var.
+# VSOMEIP_LEGACY_CONFIGURATION)
+option(HAS_BUILDIN_CONFIG "Support buildin configuration" FALSE)
 
 # ######################################################################################################################
 # Dependencies
@@ -479,9 +480,6 @@ if(${BOOST_ASIO_HAS_IONOTIFY})
 else()
   target_compile_definitions(vsomeip3 PUBLIC BOOST_ASIO_DISABLE_IONOTIFY)
 endif()
-if(HAS_BUILDIN_CONFIG)
-  target_compile_definitions(vsomeip3 PRIVATE VSOMEIP_BUILDIN_CONFIGURATION)
-endif()
 if(VSOMEIP_STATS_LOGGER)
   target_compile_definitions(vsomeip3 PUBLIC STATS_LOGGER_ON)
   target_include_directories(vsomeip3 PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/implementation/utility/include>)
@@ -494,6 +492,7 @@ target_compile_definitions(
   PUBLIC _GNU_SOURCE
   PRIVATE $<$<CXX_COMPILER_ID:MSVC>:VSOMEIP_DLL_COMPILATION>
           $<$<BOOL:${ENABLE_MULTIPLE_ROUTING_MANAGERS}>:VSOMEIP_ENABLE_MULTIPLE_ROUTING_MANAGERS>
+          $<$<BOOL:${HAS_BUILDIN_CONFIG}>:VSOMEIP_BUILDIN_CONFIGURATION>
 )
 target_include_directories(vsomeip3 SYSTEM PUBLIC $<BUILD_INTERFACE:${Boost_INCLUDE_DIRS}>)
 target_link_libraries(vsomeip3 PRIVATE STACKTRACE_INTERFACE)
@@ -529,9 +528,7 @@ if(HAS_BUILDIN_CONFIG)
   else()
     message(FATAL_ERROR "VSOMEIP_CONFIG_DIR: ${VSOMEIP_CONFIG_DIR} does not exist")
   endif()
-endif()
 
-if(HAS_BUILDIN_CONFIG)
   add_custom_command(
     OUTPUT "${VSOMEIP_COMBINED_JSON_FILE}"
     COMMENT "Generating vsomeip configuration: ${VSOMEIP_COMBINED_JSON_FILE} from ${JSON_CONFIG_FILES}"
