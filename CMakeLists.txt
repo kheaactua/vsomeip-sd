@@ -481,11 +481,11 @@ else()
   target_compile_definitions(vsomeip3 PUBLIC BOOST_ASIO_DISABLE_IONOTIFY)
 endif()
 if(VSOMEIP_STATS_LOGGER)
-  target_compile_definitions(vsomeip3 PUBLIC STATS_LOGGER_ON)
+  target_compile_definitions(vsomeip3 PUBLIC
+    STATS_LOGGER_ON
+    $<$<BOOL:${VSOMEIP_STATS_LOGGER_USE_WHITE_LIST}>:STATS_USE_WHITE_LIST>
+  )
   target_include_directories(vsomeip3 PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/implementation/utility/include>)
-endif()
-if(VSOMEIP_STATS_LOGGER_USE_WHITE_LIST)
-  target_compile_definitions(vsomeip3 PUBLIC STATS_USE_WHITE_LIST)
 endif()
 target_compile_definitions(
   vsomeip3
