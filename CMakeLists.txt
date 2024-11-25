@@ -126,11 +126,6 @@ find_package(
   OPTIONAL_COMPONENTS stacktrace_basic stacktrace_backtrace stacktrace_addr2line
 )
 
-add_library(DLT INTERFACE IMPORTED)
-target_include_directories(DLT INTERFACE ${DLT_INCLUDE_DIRS})
-target_link_directories(DLT INTERFACE ${DLT_LIBDIR})
-target_link_libraries(DLT INTERFACE ${DLT_LIBRARIES})
-
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   set(OS "LINUX")
   target_link_libraries(DL_INTERFACE INTERFACE dl)
@@ -256,15 +251,18 @@ endif()
 # Options
 # ######################################################################################################################
 
+find_package(PkgConfig)
+
 # DLT
 set(USE_DLT
     FALSE
     CACHE BOOL "Use dlt-daemon (automotive-dlt) runtime"
 )
 if(USE_DLT)
-  find_package(automotive-dlt)
+  pkg_check_modules(DLT "automotive-dlt >= 2.11" IMPORT_TARGET)
   if(automotive-dlt_FOUND)
     message(STATUS "automotive-dlt found and will be linked")
+    add_compile_definitions(-DUSE_DLT)
   endif()
 else()
   message(STATUS "Not linking automotive-dlt")
@@ -351,8 +349,6 @@ endif()
 message(STATUS "Using boost version: ${VSOMEIP_BOOST_VERSION}")
 
 add_definitions(-DVSOMEIP_BOOST_VERSION=${VSOMEIP_BOOST_VERSION})
-
-find_package(PkgConfig)
 
 # SystemD
 pkg_check_modules(SystemD "libsystemd")
@@ -516,6 +512,7 @@ target_link_libraries(
   vsomeip3
   PRIVATE Boost::filesystem
           Boost::thread
+          $<TARGET_NAME_IF_EXISTS:PkgConfig::DLT>
           RT_INTERFACE
           DL_INTERFACE
           OS_INTERFACE
@@ -770,13 +767,10 @@ install(
           DESTINATION "${INSTALL_BIN_DIR}"
           COMPONENT bin
 )
-if(TARGET Genivi::dlt)
-  install(
-    IMPORTED_RUNTIME_ARTIFACTS
-    Genivi::dlt
-    RUNTIME
-    DESTINATION
-    "${INSTALL_BIN_DIR}"
+if(TARGET PkgConfig::DLT)
+  install(IMPORTED_RUNTIME_ARTIFACTS
+    PkgConfig::DLT
+    RUNTIME DESTINATION "${INSTALL_BIN_DIR}"
     COMPONENT
     bin
     LIBRARY
