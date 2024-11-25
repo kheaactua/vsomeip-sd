@@ -28,6 +28,9 @@ target_link_libraries(
           RT_INTERFACE
           Threads::Threads
 )
+if(NOT ENABLE_MULTIPLE_ROUTING_MANAGERS)
+  target_compile_definitions(routingmanagerd PRIVATE vsomeip3-cfg)
+endif()
 
 if(VSOMEIP_INSTALL_ROUTINGMANAGERD)
   install(TARGETS routingmanagerd RUNTIME COMPONENT bin)

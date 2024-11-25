@@ -35,17 +35,19 @@ endif()
 # see http://www.cmake.org/Wiki/CMake/Tutorials/How_to_create_a_ProjectConfig.cmake_file
 # ######################################################################################################################
 
+include(GNUInstallDirs)
+
 # Offer the user the choice of overriding the installation directories
 set(INSTALL_LIB_DIR
-    lib
+    ${CMAKE_INSTALL_LIBDIR}
     CACHE PATH "Installation directory for libraries"
 )
 set(INSTALL_BIN_DIR
-    bin
+    ${CMAKE_INSTALL_BINDIR}
     CACHE PATH "Installation directory for executables"
 )
 set(INSTALL_INCLUDE_DIR
-    include
+    ${CMAKE_INSTALL_INCLUDEDIR}
     CACHE PATH "Installation directory for header files"
 )
 
@@ -269,6 +271,7 @@ else()
 endif()
 
 # Signal handling
+option(ENABLE_SIGNAL_HANDLING "Enable signal handling (SIGTERM, SIGINT, etc) in applicaiton_impl" FALSE)
 if(ENABLE_SIGNAL_HANDLING)
   add_definitions(-DVSOMEIP_ENABLE_SIGNAL_HANDLING)
 endif()
@@ -284,11 +287,7 @@ else()
 endif()
 
 # Multiple routing managers
-if(ENABLE_MULTIPLE_ROUTING_MANAGERS)
-  set(VSOMEIP_ENABLE_MULTIPLE_ROUTING_MANAGERS 1)
-else()
-  set(VSOMEIP_ENABLE_MULTIPLE_ROUTING_MANAGERS 0)
-endif()
+option(ENABLE_MULTIPLE_ROUTING_MANAGERS "Enable multiple routing managers" FALSE)
 
 # Security / Policy handling
 option(DISABLE_SECURITY "Disable security features")
@@ -365,11 +364,6 @@ else()
   target_link_libraries(OS_INTERFACE INTERFACE ${SystemD_LIBRARIES})
 endif()
 
-# Multiple routing managers
-if(VSOMEIP_ENABLE_MULTIPLE_ROUTING_MANAGERS EQUAL 1)
-  add_definitions(-DVSOMEIP_ENABLE_MULTIPLE_ROUTING_MANAGERS)
-endif()
-
 # ######################################################################################################################
 # Directories
 # ######################################################################################################################
@@ -414,13 +408,14 @@ endif()
 file(GLOB vsomeip3_cfg_SRC "implementation/configuration/src/*.cpp")
 list(SORT vsomeip3_cfg_SRC)
 set_source_files_properties(implementation/utility/src/stats/stats_logger.cpp PROPERTIES COMPILE_FLAGS -Wno-unused-parameter)
-if(VSOMEIP_ENABLE_MULTIPLE_ROUTING_MANAGERS EQUAL 0)
+if(NOT ENABLE_MULTIPLE_ROUTING_MANAGERS)
   add_library(vsomeip3-cfg SHARED)
   target_sources(vsomeip3-cfg PRIVATE ${vsomeip3_cfg_SRC})
   set_target_properties(
-    ${VSOMEIP_NAME}-cfg PROPERTIES
+    vsomeip3-cfg PROPERTIES
     VERSION ${VSOMEIP_VERSION}
     SOVERSION ${VSOMEIP_MAJOR_VERSION}
+    OUTPUT_NAME ${VSOMEIP_NAME}-cfg
     EXPORT_NAME vsomeip3-cfg
   )
   target_compile_definitions(vsomeip3-cfg PUBLIC $<$<CXX_COMPILER_ID:MSVC>:VSOMEIP_DLL_COMPILATION_PLUGIN>)
@@ -452,14 +447,14 @@ file(
   "implementation/utility/src/*.cpp"
   "implementation/utility/src/stats/*.cpp"
 )
-if(VSOMEIP_ENABLE_MULTIPLE_ROUTING_MANAGERS EQUAL 1)
+if(ENABLE_MULTIPLE_ROUTING_MANAGERS)
   list(APPEND vsomeip3_SRC "implementation/configuration/src/configuration_impl.cpp")
 endif()
 list(SORT vsomeip3_SRC)
 
 if(WIN32)
   list(
-    FILTER ${VSOMEIP_NAME}_SRC
+    FILTER vsomeip3_SRC
            EXCLUDE
            REGEX
            ".*uds.*"
@@ -483,7 +478,6 @@ if(${VSOMEIP_BOOST_VERSION} LESS 106600)
            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/implementation/helper>
   )
 endif()
-target_compile_definitions(vsomeip3 PUBLIC _GNU_SOURCE $<$<CXX_COMPILER_ID:MSVC>:VSOMEIP_DLL_COMPILATION>)
 if(${BOOST_ASIO_HAS_IONOTIFY})
   target_compile_definitions(vsomeip3 PUBLIC BOOST_ASIO_HAS_IONOTIFY)
 else()
@@ -499,6 +493,12 @@ endif()
 if(VSOMEIP_STATS_LOGGER_USE_WHITE_LIST)
   target_compile_definitions(vsomeip3 PUBLIC STATS_USE_WHITE_LIST)
 endif()
+target_compile_definitions(
+  vsomeip3
+  PUBLIC _GNU_SOURCE
+  PRIVATE $<$<CXX_COMPILER_ID:MSVC>:VSOMEIP_DLL_COMPILATION>
+          $<$<BOOL:${ENABLE_MULTIPLE_ROUTING_MANAGERS}>:VSOMEIP_ENABLE_MULTIPLE_ROUTING_MANAGERS>
+)
 target_include_directories(vsomeip3 SYSTEM PUBLIC $<BUILD_INTERFACE:${Boost_INCLUDE_DIRS}>)
 target_link_libraries(vsomeip3 PRIVATE STACKTRACE_INTERFACE)
 set_target_properties(
@@ -523,7 +523,7 @@ target_link_libraries(
 )
 
 if(NOT WIN32)
-  target_link_options(${VSOMEIP_NAME} PRIVATE "LINKER:-as-needed")
+  target_link_options(vsomeip3 PRIVATE "LINKER:-as-needed")
 endif()
 
 if(HAS_BUILDIN_CONFIG)
@@ -787,7 +787,7 @@ if(TARGET Genivi::dlt)
   )
 endif()
 
-if(VSOMEIP_ENABLE_MULTIPLE_ROUTING_MANAGERS EQUAL 0)
+if(NOT ENABLE_MULTIPLE_ROUTING_MANAGERS)
   install(
     TARGETS vsomeip3-cfg LIBRARY
             DESTINATION "${INSTALL_LIB_DIR}"
