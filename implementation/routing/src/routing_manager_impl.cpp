@@ -18,7 +18,7 @@
 #endif
 
 #include <boost/asio/steady_timer.hpp>
-#include <boost/stacktrace.hpp>
+// #include <boost/stacktrace.hpp>
 
 #include <vsomeip/constants.hpp>
 #include <vsomeip/payload.hpp>
@@ -1243,7 +1243,8 @@ void routing_manager_impl::register_event(client_t _client,
         bool _update_on_change,
         epsilon_change_func_t _epsilon_change_func,
         bool _is_provided, bool _is_shadow, bool _is_cache_placeholder) {
-    VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " " << boost::stacktrace::stacktrace();
+    // VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " " << boost::stacktrace::stacktrace();
+    VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " ";
 
     auto its_event = find_event(_service, _instance, _notifier);
     bool is_first(false);
