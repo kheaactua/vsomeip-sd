@@ -58,6 +58,7 @@ global:
         *vsomeip::runtime;
         vsomeip::logger::*;
         *vsomeip::logger;
+	__wrap*;
     };
     vsomeip_plugin_init;
 local:

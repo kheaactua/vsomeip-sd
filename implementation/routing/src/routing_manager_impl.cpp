@@ -18,6 +18,7 @@
 #endif
 
 #include <boost/asio/steady_timer.hpp>
+#include <boost/stacktrace.hpp>
 
 #include <vsomeip/constants.hpp>
 #include <vsomeip/payload.hpp>
@@ -1242,6 +1243,8 @@ void routing_manager_impl::register_event(client_t _client,
         bool _update_on_change,
         epsilon_change_func_t _epsilon_change_func,
         bool _is_provided, bool _is_shadow, bool _is_cache_placeholder) {
+    VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " " << boost::stacktrace::stacktrace();
+
     auto its_event = find_event(_service, _instance, _notifier);
     bool is_first(false);
     if (its_event) {
@@ -4420,6 +4423,7 @@ bool routing_manager_impl::create_placeholder_event_and_subscribe(
         service_t _service, instance_t _instance, eventgroup_t _eventgroup,
         event_t _event, const std::shared_ptr<debounce_filter_impl_t> &_filter,
         client_t _client) {
+    VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << "";
 
     bool is_inserted(false);
     // we received a event which was not yet requested/offered
