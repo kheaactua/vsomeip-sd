@@ -653,6 +653,7 @@ void routing_manager_stub::on_message(const byte_t *_data, length_t _size,
 
         case protocol::id_e::REQUEST_SERVICE_ID:
         {
+            VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " case protocol::id_e::REQUEST_SERVICE_ID";
             protocol::request_service_command its_command;
             its_command.deserialize(its_buffer, its_error);
             if (its_error == protocol::error_e::ERROR_OK) {
