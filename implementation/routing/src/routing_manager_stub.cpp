@@ -291,10 +291,12 @@ void routing_manager_stub::on_message(const byte_t *_data, length_t _size,
             protocol::register_application_command its_command;
             its_command.deserialize(its_buffer, its_error);
             if (its_error == protocol::error_e::ERROR_OK)
+            {
+                VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " case protocol::id_e::REGISTER_APPLICATION_ID";
                 update_registration(its_command.get_client(),
                         registration_type_e::REGISTER,
                         _remote_address, its_command.get_port());
-            else
+            } else
                 VSOMEIP_ERROR << __func__
                     << ": deserializing register application failed ("
                     << std::dec << static_cast<int>(its_error) << ")";
@@ -307,10 +309,12 @@ void routing_manager_stub::on_message(const byte_t *_data, length_t _size,
             protocol::deregister_application_command its_command;
             its_command.deserialize(its_buffer, its_error);
             if (its_error == protocol::error_e::ERROR_OK)
+            {
+                VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " case protocol::id_e::DEREGISTER_APPLICATION_ID";
                 update_registration(its_command.get_client(),
                         registration_type_e::DEREGISTER,
                         _remote_address, its_port);
-            else
+            } else
                 VSOMEIP_ERROR << __func__
                     << ": deserializing register application failed ("
                     << std::dec << static_cast<int>(its_error) << ")";
@@ -387,6 +391,7 @@ void routing_manager_stub::on_message(const byte_t *_data, length_t _size,
 
         case protocol::id_e::SUBSCRIBE_ID:
         {
+            VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " case protocol::id_e::SUBSCRIBE_ID";
             protocol::subscribe_command its_command;
             its_command.deserialize(its_buffer, its_error);
             if (its_error == protocol::error_e::ERROR_OK) {
@@ -398,10 +403,13 @@ void routing_manager_stub::on_message(const byte_t *_data, length_t _size,
                 its_major = its_command.get_major();
                 its_notifier = its_command.get_event();
                 auto its_filter = its_command.get_filter();
+                VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " case protocol::id_e::SUBSCRIBE_ID, version=" << static_cast<int>(its_major) << ".<?>";
 
                 if (its_notifier == ANY_EVENT) {
                     if (host_->is_subscribe_to_any_event_allowed(_sec_client, its_client, its_service,
                             its_instance, its_eventgroup)) {
+
+                        VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " case protocol::id_e::SUBSCRIBE_ID, host->subscribe(" << std::hex << its_client << ", " << std::hex << _sec_client << ", " << std::hex << its_service << ", " << std::hex << its_instance << ", " << std::hex << its_eventgroup << ", " << std::dec << its_major << ", " << std::hex << its_notifier << ", " << std::hex << its_filter << ")";
                         host_->subscribe(its_client, _sec_client, its_service, its_instance,
                                 its_eventgroup, its_major, its_notifier, its_filter);
                     } else {
@@ -414,6 +422,14 @@ void routing_manager_stub::on_message(const byte_t *_data, length_t _size,
                 } else {
                     if (VSOMEIP_SEC_OK == security::is_client_allowed_to_access_member(
                             _sec_client, its_service, its_instance, its_notifier)) {
+                        VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__
+                                     << " case protocol::id_e::SUBSCRIBE_ID, host->subscribe("
+                                     << std::hex << its_client << ", <sec_client>, "
+                                     << std::hex << its_service << ", " << std::hex
+                                     << its_instance << ", " << std::hex << its_eventgroup << ", "
+                                     << std::dec << +its_major << ", " << std::hex << its_notifier
+                                     << ", " << std::hex << its_filter << ")";
+                        // TODO what is the filter?
                         host_->subscribe(its_client, _sec_client, its_service, its_instance,
                                 its_eventgroup, its_major, its_notifier, its_filter);
                     } else {
@@ -454,6 +470,8 @@ void routing_manager_stub::on_message(const byte_t *_data, length_t _size,
 
         case protocol::id_e::SUBSCRIBE_ACK_ID:
         {
+            VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " case protocol::id_e::SUBSCRIBE_ACK_ID";
+
             protocol::subscribe_ack_command its_command;
             its_command.deserialize(its_buffer, its_error);
             if (its_error == protocol::error_e::ERROR_OK) {
@@ -677,6 +695,8 @@ void routing_manager_stub::on_message(const byte_t *_data, length_t _size,
 
         case protocol::id_e::REGISTER_EVENT_ID:
         {
+            VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " case protocol::id_e::REGISTER_EVENT_ID";
+
             protocol::register_events_command its_command;
             its_command.deserialize(its_buffer, its_error);
             if (its_error == protocol::error_e::ERROR_OK) {
@@ -926,6 +946,7 @@ routing_manager_stub::on_offered_service_request(client_t _client,
 }
 
 void routing_manager_stub::client_registration_func(void) {
+    VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " ";
 #if defined(__linux__) || defined(ANDROID) || defined(__QNX__)
     {
         std::stringstream s;
@@ -1784,6 +1805,7 @@ bool routing_manager_stub::is_registered(client_t _client) const {
 void routing_manager_stub::update_registration(client_t _client,
         registration_type_e _type,
         const boost::asio::ip::address &_address, port_t _port) {
+    VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " ";
 
     std::stringstream its_client;
     its_client << std::hex << std::setfill('0') << std::setw(4) << _client;
@@ -1802,7 +1824,10 @@ void routing_manager_stub::update_registration(client_t _client,
         policy_manager_impl::get()->remove_client_to_sec_client_mapping(_client);
     } else {
         if (_port > 0 && _port < ILLEGAL_PORT)
+        {
+            VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " host->add_guest";
             host_->add_guest(_client, _address, _port);
+        }
     }
 
     if (_type == registration_type_e::DEREGISTER) {

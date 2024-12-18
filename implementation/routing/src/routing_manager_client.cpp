@@ -619,6 +619,7 @@ void routing_manager_client::subscribe(
         service_t _service, instance_t _instance,
         eventgroup_t _eventgroup, major_version_t _major,
         event_t _event, const std::shared_ptr<debounce_filter_impl_t> &_filter) {
+    VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " ";
 
     (void)_client;
 
@@ -1423,6 +1424,7 @@ void routing_manager_client::on_message(
                                         send_subscribe_ack(its_client, its_service, its_instance,
                                                            its_eventgroup, its_event,
                                                            PENDING_SUBSCRIPTION_ID);
+                                        VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " ";
                                         routing_manager_base::subscribe(
                                                 its_client, _sec_client, its_service, its_instance,
                                                 its_eventgroup, its_major, its_event, its_filter);
@@ -2022,6 +2024,8 @@ void routing_manager_client::on_routing_info(
                     } else {
                         send_subscribe_ack(si.client_id_, si.service_id_,
                                 si.instance_id_, si.eventgroup_id_, si.event_, PENDING_SUBSCRIPTION_ID);
+
+                        VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " ";
                         routing_manager_base::subscribe(si.client_id_, &si.sec_client_,
                                 si.service_id_, si.instance_id_, si.eventgroup_id_,
                                 si.major_, si.event_, si.filter_);

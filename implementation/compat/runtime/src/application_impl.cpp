@@ -149,6 +149,7 @@ void
 application_impl::subscribe(service_t _service, instance_t _instance,
         eventgroup_t _eventgroup, major_version_t _major,
         subscription_type_e _subscription_type, event_t _event) {
+    VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " ";
 
     (void)_subscription_type; // unused in v3
     impl_->subscribe(_service, _instance, _eventgroup, _major, _event);

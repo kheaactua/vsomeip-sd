@@ -717,6 +717,7 @@ void routing_manager_impl::subscribe(
         service_t _service, instance_t _instance,
         eventgroup_t _eventgroup, major_version_t _major,
         event_t _event, const std::shared_ptr<debounce_filter_impl_t> &_filter) {
+    VSOMEIP_INFO << "Matt: routing_manager_impl::" << __func__ << ":" << __LINE__ << " service=" << std::hex << _service << ", major=" << std::dec << +_major << ", event=" << std::hex << _event << std::dec;
 
     VSOMEIP_INFO << "SUBSCRIBE("
         << std::hex << std::setfill('0')
@@ -728,6 +729,8 @@ void routing_manager_impl::subscribe(
         << std::dec << +_major << "]";
     const client_t its_local_client = find_local_client(_service, _instance);
     if (get_client() == its_local_client) {
+        VSOMEIP_INFO << "Matt: routing_manager_impl::" << __func__ << ":" << __LINE__ << " is local client";
+
 #ifdef VSOMEIP_ENABLE_COMPAT
         routing_manager_base::set_incoming_subscription_state(_client, _service, _instance,
                 _eventgroup, _event, subscription_state_e::IS_SUBSCRIBING);
@@ -738,6 +741,8 @@ void routing_manager_impl::subscribe(
             [this, self, _client, _sec_client, _service, _instance, _eventgroup,
                 _major, _event, _filter]
                     (const bool _subscription_accepted) {
+            VSOMEIP_INFO << "Matt: routing_manager_impl::" << __func__ << ":on_subscription callback:" << __LINE__ << " ";
+
             (void) ep_mgr_->find_or_create_local(_client);
             if (!_subscription_accepted) {
                 if (stub_)
@@ -749,6 +754,7 @@ void routing_manager_impl::subscribe(
             } else if (stub_) {
                 stub_->send_subscribe_ack(_client, _service, _instance, _eventgroup, _event);
             }
+            VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " calling routing_manager_base::subscribe";
             routing_manager_base::subscribe(_client, _sec_client,
                     _service, _instance, _eventgroup, _major,
                     _event, _filter);
@@ -759,6 +765,7 @@ void routing_manager_impl::subscribe(
 #endif
         });
     } else {
+        VSOMEIP_INFO << "Matt: routing_manager_impl::" << __func__ << ":" << __LINE__ << " is NOT local client";
         if (discovery_) {
             std::set<event_t> its_already_subscribed_events;
 
@@ -771,7 +778,9 @@ void routing_manager_impl::subscribe(
                     _event, _filter, _client, &its_already_subscribed_events);
             const bool subscriber_is_rm_host = (get_client() == _client);
             if (inserted) {
+                VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " is inserted";
                 if (0 == its_local_client) {
+                    VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " its_local_client == 0";
                     handle_subscription_state(_client, _service, _instance, _eventgroup, _event);
                     its_critical.unlock();
                     static const ttl_t configured_ttl(configuration_->get_sd_ttl());
@@ -784,17 +793,23 @@ void routing_manager_impl::subscribe(
                     // a StopSubscribe/Subscribe once the first offer is received
                     if (its_info &&
                             (!subscriber_is_rm_host || find_service(_service, _instance))) {
+                        VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " discover->subscribe";
                         discovery_->subscribe(_service, _instance, _eventgroup,
                                 _major, configured_ttl,
                                 its_info->is_selective() ? _client : VSOMEIP_ROUTING_CLIENT,
                                 its_info);
                     }
                 } else {
+                    VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " its_local_client != 0";
                     its_critical.unlock();
                     if (is_available(_service, _instance, _major) && stub_) {
+                        VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " is_available, stub_->send_subscribe";
                         stub_->send_subscribe(ep_mgr_->find_local(_service, _instance),
                                _client, _service, _instance, _eventgroup, _major,
                                _event, _filter, PENDING_SUBSCRIPTION_ID);
+                    }
+                    else {
+                        VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " is not available";
                     }
                 }
             }

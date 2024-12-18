@@ -680,6 +680,7 @@ void application_impl::subscribe(service_t _service, instance_t _instance,
                                  eventgroup_t _eventgroup,
                                  major_version_t _major,
                                  event_t _event) {
+    VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " ";
     if (routing_) {
         bool send_back_cached(false);
         bool send_back_cached_group(false);
@@ -1068,6 +1069,7 @@ void application_impl::on_subscription(
         client_t _client, const vsomeip_sec_client_t *_sec_client,
         const std::string &_env, bool _subscribed,
         const std::function<void(bool)> &_accepted_cb) {
+    VSOMEIP_INFO << "Matt: routing_manager_impl::" << __func__ << ":" << __LINE__ << " service=" << std::hex << _service << ", client=" << std::hex << +_client;
 
     bool handler_found = false;
     std::pair<subscription_handler_sec_t, async_subscription_handler_sec_t> its_handlers;

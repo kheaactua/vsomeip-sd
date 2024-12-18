@@ -772,6 +772,7 @@ void routing_manager_base::subscribe(client_t _client,
         service_t _service, instance_t _instance,
         eventgroup_t _eventgroup, major_version_t _major,
         event_t _event, const std::shared_ptr<debounce_filter_impl_t> &_filter) {
+    VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " ";
 
     (void)_major;
     (void)_sec_client;
@@ -1404,6 +1405,7 @@ bool routing_manager_base::insert_subscription(
         service_t _service, instance_t _instance, eventgroup_t _eventgroup,
         event_t _event, const std::shared_ptr<debounce_filter_impl_t> &_filter,
         client_t _client, std::set<event_t> *_already_subscribed_events) {
+    VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " Subscribing " << std::hex << _client << " to " << std::hex << _service << ", version isn't a parameter";
 
     bool is_inserted(false);
     if (_event != ANY_EVENT) { // subscribe to specific event

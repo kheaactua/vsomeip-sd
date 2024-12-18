@@ -359,6 +359,7 @@ service_discovery_impl::subscribe(
         eventgroup_t _eventgroup, major_version_t _major,
         ttl_t _ttl, client_t _client,
         const std::shared_ptr<eventgroupinfo> &_info) {
+    VSOMEIP_INFO << "Matt: " << __func__ << ":" << __LINE__ << " ";
 
     if (is_suspended_) {
         VSOMEIP_WARNING << "service_discovery::" << __func__
