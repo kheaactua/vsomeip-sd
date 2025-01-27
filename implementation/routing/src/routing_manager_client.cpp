@@ -148,6 +148,8 @@ void routing_manager_client::start() {
             }
             if (sender_) {
                 sender_->start();
+            } else {
+                VSOMEIP_ERROR << "routing_manager_client::" << __func__ << " fail";
             }
         }
 #if defined(__linux__) || defined(ANDROID)
@@ -984,6 +986,8 @@ void routing_manager_client::on_connect(const std::shared_ptr<endpoint>& _endpoi
     {
         std::lock_guard<std::mutex> its_lock(sender_mutex_);
         if (_endpoint != sender_) {
+            VSOMEIP_ERROR << "routing_manager_client::" << __func__ << ": Client 0x" << std::hex
+                << get_client() << " is not assigned";
             return;
         }
     }

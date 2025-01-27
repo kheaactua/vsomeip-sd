@@ -339,7 +339,10 @@ void tcp_server_endpoint_impl::accept_cbk(const connection::ptr& _connection,
                 std::lock_guard<std::mutex> its_lock(connections_mutex_);
                 connections_[remote] = _connection;
             }
+            VSOMEIP_INFO << "tsei::" << __func__ << " connection accepted from " << _connection->get_address_port_remote();
             _connection->start();
+        } else {
+            VSOMEIP_ERROR << "tsei::" << __func__ << " fail to start _connection";
         }
     }
     if (_error != boost::asio::error::bad_descriptor
@@ -363,6 +366,8 @@ void tcp_server_endpoint_impl::accept_cbk(const connection::ptr& _connection,
                                (const boost::system::error_code& _error_inner) {
             if (!_error_inner) {
                 its_ep->start();
+            } else {
+                VSOMEIP_ERROR << "tsei::accept_cbk()->async_wait() fail with: " << _error_inner.message();
             }
         });
     }

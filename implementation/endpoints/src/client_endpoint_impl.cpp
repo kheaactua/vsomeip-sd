@@ -445,6 +445,7 @@ void client_endpoint_impl<Protocol>::connect_cbk(
                 VSOMEIP_WARNING << "cei::" << __func__ << ": connect_cbk attempt "
                                 << "(" << _error.value() << "):" << _error.message();
             }
+            VSOMEIP_INFO << "cei::" << __func__ << " connected to " << get_remote_information();
             {
                 std::lock_guard<std::mutex> its_lock(connect_timer_mutex_);
                 connect_timer_.cancel();
